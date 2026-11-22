@@ -62,22 +62,25 @@ export function DropdownMenuTrigger({ children, className, asChild, ...props }: 
   const handleClick = () => setOpen(!open);
 
   if (asChild) {
+    // Slot expects a single React element child
+    const childArray = React.Children.toArray(children);
+    const validChild = childArray.find(React.isValidElement) as React.ReactElement | undefined;
+
+    if (!validChild) return null;
+
     return (
       <Slot>
-        {React.Children.map(children, (child) => {
-          if (!React.isValidElement(child)) return child;
-          return React.cloneElement(child, {
-            ref: triggerRef,
-            className: cn('inline-flex items-center gap-1', child.props.className, className),
-            onClick: (e: React.MouseEvent) => {
-              handleClick();
-              child.props.onClick?.(e);
-            },
-            'aria-expanded': open,
-            'aria-haspopup': 'true',
-            ...props,
-            ...child.props,
-          });
+        {React.cloneElement(validChild, {
+          ref: triggerRef,
+          className: cn('inline-flex items-center gap-1', validChild.props.className, className),
+          onClick: (e: React.MouseEvent) => {
+            handleClick();
+            validChild.props.onClick?.(e);
+          },
+          'aria-expanded': open,
+          'aria-haspopup': 'true',
+          ...props,
+          ...validChild.props,
         })}
       </Slot>
     );
@@ -150,25 +153,26 @@ export function DropdownMenuItem({
   };
 
   if (asChild) {
-    // Slot expects a single React element child. Don't spread props onto Slot.
-    // The props (className, onClick, etc.) will be merged by Slot onto the child.
+    // Slot expects a single React element child
+    const childArray = React.Children.toArray(children);
+    const validChild = childArray.find(React.isValidElement) as React.ReactElement | undefined;
+
+    if (!validChild) return null;
+
     return (
       <Slot>
-        {React.Children.map(children, (child) => {
-          if (!React.isValidElement(child)) return child;
-          return React.cloneElement(child, {
-            className: cn(
-              'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-              child.props.className,
-              className
-            ),
-            onClick: (e: React.MouseEvent) => {
-              handleClick();
-              child.props.onClick?.(e);
-            },
-            ...props,
-            ...child.props,
-          });
+        {React.cloneElement(validChild, {
+          className: cn(
+            'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+            validChild.props.className,
+            className
+          ),
+          onClick: (e: React.MouseEvent) => {
+            handleClick();
+            validChild.props.onClick?.(e);
+          },
+          ...props,
+          ...validChild.props,
         })}
       </Slot>
     );
