@@ -32,7 +32,7 @@ export function AccountMenu() {
         <span className="hidden sm:inline">{session?.user?.name || 'Usuário'}</span>
         <ChevronDown className="h-4 w-4 opacity-50" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
+      <DropdownMenuContent className="w-56" align="end">
         <div className="px-3 py-2">
           <p className="text-sm font-medium truncate">{session?.user?.name || 'Usuário'}</p>
           <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>

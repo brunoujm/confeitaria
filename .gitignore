@@ -63,3 +63,6 @@ Desktop.ini
 # Logs
 logs/
 *.log
+
+# Prints/screenshots (never versioned)
+prints/

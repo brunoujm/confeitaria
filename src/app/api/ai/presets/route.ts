@@ -37,7 +37,13 @@ export async function GET(_request: NextRequest) {
       ],
     });
 
-    return NextResponse.json({ presets });
+    // Parse variables JSON string to array
+    const parsedPresets = presets.map(preset => ({
+      ...preset,
+      variables: typeof preset.variables === 'string' ? JSON.parse(preset.variables) : preset.variables,
+    }));
+
+    return NextResponse.json({ presets: parsedPresets });
   } catch (error) {
     console.error('Presets fetch error:', error);
     return NextResponse.json({ error: 'Erro ao buscar presets' }, { status: 500 });
@@ -91,7 +97,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const response = NextResponse.json({ preset }, { status: 201 });
+    // Parse variables JSON string to array for response
+    const parsedPreset = {
+      ...preset,
+      variables: typeof preset.variables === 'string' ? JSON.parse(preset.variables) : preset.variables,
+    };
+
+    const response = NextResponse.json({ preset: parsedPreset }, { status: 201 });
     response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
     response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
     response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
