@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/DropdownMenu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
-import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
+import { User, Settings, LogOut } from 'lucide-react';
 
 export function AccountMenu() {
   const { data: session } = useSession();
@@ -30,7 +30,6 @@ export function AccountMenu() {
           )}
         </Avatar>
         <span className="hidden sm:inline">{session?.user?.name || 'Usuário'}</span>
-        <ChevronDown className="h-4 w-4 opacity-50" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end">
         <div className="px-3 py-2">

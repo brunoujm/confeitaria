@@ -97,7 +97,9 @@ export function DropdownMenuTrigger({ children, className, asChild, ...props }: 
       {...props}
     >
       {children}
-      <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} />
+      {!asChild && (
+        <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} />
+      )}
     </button>
   );
 }

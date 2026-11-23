@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -19,11 +19,12 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, MoreHorizontal, Clock, User } from 'lucide-react';
+import { GripVertical, MoreHorizontal, Clock, User, ChevronDown, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { type Post } from '@/lib/validations/post';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 
 interface CalendarGridProps {
   posts: Post[];
@@ -38,15 +39,63 @@ interface DayCellProps {
   isToday: boolean;
   posts: Post[];
   onPostClick?: (post: Post) => void;
+  maxVisiblePosts?: number;
 }
 
 interface SortablePostProps {
   post: Post;
   index: number;
   onClick?: (post: Post) => void;
+  isCompact?: boolean;
 }
 
-function SortablePost({ post, index, onClick }: SortablePostProps) {
+// Constantes para cores por tipo e status
+const TYPE_COLORS: Record<string, string> = {
+  FEED: 'bg-primary/15 text-primary border-primary/30',
+  STORIES: 'bg-purple/15 text-purple border-purple/30',
+  REELS: 'bg-orange/15 text-orange border-orange/30',
+  WHATSAPP_STATUS: 'bg-green/15 text-green border-green/30',
+  WHATSAPP_CATALOG: 'bg-teal/15 text-teal border-teal/30',
+};
+
+const TYPE_BADGE_COLORS: Record<string, string> = {
+  FEED: 'bg-primary/20 text-primary',
+  STORIES: 'bg-purple/20 text-purple',
+  REELS: 'bg-orange/20 text-orange',
+  WHATSAPP_STATUS: 'bg-green/20 text-green',
+  WHATSAPP_CATALOG: 'bg-teal/20 text-teal',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  DRAFT: 'bg-muted text-muted-foreground border-dashed',
+  APPROVED: 'bg-green/15 text-green border-green/30',
+  PUBLISHED: 'bg-blue/15 text-blue border-blue/30',
+  ARCHIVED: 'bg-muted/50 text-muted-foreground border-muted',
+};
+
+const STATUS_BADGE_COLORS: Record<string, string> = {
+  DRAFT: 'bg-muted text-muted-foreground border border-dashed',
+  APPROVED: 'bg-green/20 text-green',
+  PUBLISHED: 'bg-blue/20 text-blue',
+  ARCHIVED: 'bg-muted text-muted-foreground',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Rascunho',
+  APPROVED: 'Aprovado',
+  PUBLISHED: 'Publicado',
+  ARCHIVED: 'Arquivado',
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  FEED: 'Feed',
+  STORIES: 'Stories',
+  REELS: 'Reels',
+  WHATSAPP_STATUS: 'WhatsApp Status',
+  WHATSAPP_CATALOG: 'WhatsApp Catálogo',
+};
+
+function SortablePost({ post, index, onClick, isCompact = false }: SortablePostProps) {
   const {
     attributes,
     listeners,
@@ -62,95 +111,151 @@ function SortablePost({ post, index, onClick }: SortablePostProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const typeColors: Record<string, string> = {
-    FEED: 'bg-primary/20 text-primary',
-    STORIES: 'bg-purple/20 text-purple',
-    REELS: 'bg-orange/20 text-orange',
-    WHATSAPP_STATUS: 'bg-green/20 text-green',
-    WHATSAPP_CATALOG: 'bg-teal/20 text-teal',
-  };
+  const typeColor = TYPE_BADGE_COLORS[post.type] || TYPE_BADGE_COLORS.FEED;
+  const statusColor = STATUS_BADGE_COLORS[post.status] || STATUS_BADGE_COLORS.DRAFT;
+  const cardColor = TYPE_COLORS[post.type] || TYPE_COLORS.FEED;
+  const statusBgColor = STATUS_COLORS[post.status] || STATUS_COLORS.DRAFT;
 
-  const statusColors: Record<string, string> = {
-    DRAFT: 'bg-muted text-muted-foreground border-dashed',
-    APPROVED: 'bg-green/20 text-green',
-    PUBLISHED: 'bg-blue/20 text-blue',
-    ARCHIVED: 'bg-muted text-muted-foreground',
-  };
+  const typeLabel = TYPE_LABELS[post.type] || post.type;
+  const statusLabel = STATUS_LABELS[post.status] || post.status;
 
-  const typeLabel = post.type;
-  const statusLabel = post.status;
+  const scheduledTime = post.scheduledAt
+    ? format(new Date(post.scheduledAt), 'HH:mm', { locale: ptBR })
+    : null;
+
+  const authorName = post.author?.name || '—';
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        'group relative p-2 rounded-lg cursor-pointer transition-all',
-        'hover:shadow-md hover:z-10',
-        statusColors[post.status] || 'bg-muted'
-      )}
-      onClick={() => onClick?.(post)}
-      {...attributes}
-      {...listeners}
-    >
-      <div className="flex items-start gap-2">
-        <button
-          {...attributes}
-          {...listeners}
-          className="flex items-center justify-center w-6 h-6 rounded hover:bg-black/10 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-          aria-label="Arrastar"
-        >
-          <GripVertical className="h-3 w-3" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', typeColors[post.type])}>
-              {typeLabel}
-            </span>
-            <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium', statusColors[post.status])}>
-              {statusLabel}
-            </span>
+    <TooltipProvider>
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          'group relative rounded-lg cursor-pointer transition-all w-full border',
+          'hover:shadow-md hover:z-10',
+          cardColor,
+          isDragging && 'ring-2 ring-primary ring-offset-2',
+          isCompact ? 'p-1.5' : 'p-2'
+        )}
+        onClick={() => onClick?.(post)}
+        {...attributes}
+        {...listeners}
+      >
+        <div className="flex items-start gap-1.5 min-w-0">
+          {/* Drag handle */}
+          <button
+            {...attributes}
+            {...listeners}
+            className="flex items-center justify-center w-5 h-5 rounded hover:bg-black/5 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+            aria-label="Arrastar para reordenar"
+          >
+            <GripVertical className="h-2.5 w-2.5" />
+          </button>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            {/* Badges row */}
+            <div className="flex items-center gap-1 text-[10px] font-medium flex-wrap mb-1">
+              <span className={cn('px-1.5 py-0.5 rounded whitespace-nowrap shrink-0', typeColor)}>
+                {typeLabel}
+              </span>
+              <span className={cn('px-1.5 py-0.5 rounded whitespace-nowrap shrink-0', statusColor)}>
+                {statusLabel}
+              </span>
+            </div>
+
+            {/* Title with tooltip on truncation */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h4 className="font-medium truncate text-sm">{post.title}</h4>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="start" className="max-w-xs">
+                <p className="font-medium">{post.title}</p>
+                {post.caption && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{post.caption}</p>}
+              </TooltipContent>
+            </Tooltip>
+
+            {/* Meta info: time and author */}
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-1">
+              {scheduledTime && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-0.5 whitespace-nowrap">
+                      <Clock className="h-2.5 w-2.5 flex-shrink-0" />
+                      <span>{scheduledTime}</span>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Agendado para {scheduledTime}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {post.author && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center gap-0.5 whitespace-nowrap truncate max-w-[120px]">
+                      <User className="h-2.5 w-2.5 flex-shrink-0" />
+                      <span>{authorName}</span>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Autor: {authorName}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </div>
-          <h4 className="font-medium text-sm truncate mt-1">{post.title}</h4>
-          {post.scheduledAt && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-              <Clock className="h-3 w-3" />
-              <span>{format(new Date(post.scheduledAt), 'HH:mm', { locale: ptBR })}</span>
-            </div>
-          )}
-          {post.author && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-              <User className="h-3 w-3" />
-              <span className="truncate">{post.author.name}</span>
-            </div>
-          )}
+
+          {/* More actions button */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground p-1 rounded flex-shrink-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // TODO: Open context menu
+                }}
+              >
+                <MoreHorizontal className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left" align="center">
+              <p className="text-xs">Mais opções</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
-        <button
-          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground p-1 rounded"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <MoreHorizontal className="h-3 w-3" />
-        </button>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
-function DayCell({ date, isCurrentMonth, isToday, posts, onPostClick }: DayCellProps) {
+function DayCell({ date, isCurrentMonth, isToday, posts, onPostClick, maxVisiblePosts = 3 }: DayCellProps) {
   const dayNumber = date.getDate();
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+  const [showAllPosts, setShowAllPosts] = useState(false);
+
+  const visiblePosts = showAllPosts ? posts : posts.slice(0, maxVisiblePosts);
+  const hiddenCount = posts.length - maxVisiblePosts;
 
   return (
     <div
       className={cn(
-        'relative min-h-[120px] p-2 border border-border bg-background',
+        'relative min-h-[112px] p-2 border border-border bg-background flex flex-col',
         !isCurrentMonth && 'text-muted-foreground/50 bg-muted/30',
         isToday && 'ring-2 ring-primary relative',
         isWeekend && 'bg-muted/20'
       )}
     >
-      <div className={cn('text-sm font-medium', isToday && 'text-primary')}>
-        {dayNumber}
+      {/* Day number with today indicator */}
+      <div className={cn('flex items-center justify-between mb-1', isToday && 'text-primary font-semibold')}>
+        <span className={cn('text-sm font-medium', isToday && 'text-primary')}>
+          {dayNumber}
+        </span>
+        {isToday && (
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+            Hoje
+          </span>
+        )}
       </div>
 
       {posts.length > 0 && (
@@ -158,21 +263,51 @@ function DayCell({ date, isCurrentMonth, isToday, posts, onPostClick }: DayCellP
           items={posts.map((p) => p.id)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="mt-1 space-y-1 max-h-[80px] overflow-y-auto">
-            {posts.map((post, index) => (
+          <div className="mt-1 space-y-1 flex-1 min-h-0 overflow-hidden">
+            {visiblePosts.map((post, index) => (
               <SortablePost
                 key={post.id}
                 post={post}
                 index={index}
                 onClick={onPostClick}
+                isCompact={posts.length > maxVisiblePosts}
               />
             ))}
           </div>
         </SortableContext>
       )}
 
+      {/* "+N mais" indicator */}
+      {hiddenCount > 0 && !showAllPosts && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowAllPosts(true);
+          }}
+          className="mt-1 w-full text-xs text-muted-foreground hover:text-foreground px-1 py-0.5 rounded hover:bg-accent transition-colors flex items-center justify-center gap-1"
+        >
+          <ChevronDown className="h-3 w-3" />
+          <span>+{hiddenCount} mais</span>
+        </button>
+      )}
+
+      {/* Show less button when expanded */}
+      {showAllPosts && hiddenCount > 0 && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowAllPosts(false);
+          }}
+          className="mt-1 w-full text-xs text-muted-foreground hover:text-foreground px-1 py-0.5 rounded hover:bg-accent transition-colors flex items-center justify-center gap-1"
+        >
+          <X className="h-3 w-3" />
+          <span>Mostrar menos</span>
+        </button>
+      )}
+
+      {/* Empty state for non-current month days */}
       {!isCurrentMonth && posts.length === 0 && (
-        <div className="mt-4 text-center text-xs text-muted-foreground/50">
+        <div className="mt-4 text-center text-xs text-muted-foreground/50 flex-1">
           —
         </div>
       )}
@@ -290,37 +425,40 @@ export function CalendarGrid({
   }
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
-        {/* Day headers */}
-        {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
-          <div
-            key={day}
-            className="bg-muted p-2 text-center text-sm font-medium text-muted-foreground"
-          >
-            {day}
-          </div>
-        ))}
+    <TooltipProvider>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="grid grid-cols-7 gap-1 bg-border rounded-lg overflow-hidden">
+          {/* Day headers */}
+          {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+            <div
+              key={day}
+              className="bg-muted p-3 text-center text-sm font-semibold text-muted-foreground border-b border-border"
+            >
+              {day}
+            </div>
+          ))}
 
-        {/* Days */}
-        {days.map((day) => (
-          <DayCell
-            key={day.date.toISOString()}
-            date={day.date}
-            isCurrentMonth={day.isCurrentMonth}
-            isToday={day.isToday}
-            posts={day.posts}
-            onPostClick={onPostClick}
-          />
-        ))}
-      </div>
-    </DndContext>
+          {/* Days */}
+          {days.map((day) => (
+            <DayCell
+              key={day.date.toISOString()}
+              date={day.date}
+              isCurrentMonth={day.isCurrentMonth}
+              isToday={day.isToday}
+              posts={day.posts}
+              onPostClick={onPostClick}
+              maxVisiblePosts={3}
+            />
+          ))}
+        </div>
+      </DndContext>
+    </TooltipProvider>
   );
 }
 
@@ -363,37 +501,39 @@ export function CalendarWeekView({
   });
 
   return (
-    <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
-      {days.map((day) => {
-        const dateKey = format(day, 'yyyy-MM-dd');
-        const dayPosts = postsByDate.get(dateKey) || [];
-        const isToday = day.toDateString() === new Date().toDateString();
+    <TooltipProvider>
+      <div className="grid grid-cols-7 gap-1 bg-border rounded-lg overflow-hidden">
+        {days.map((day) => {
+          const dateKey = format(day, 'yyyy-MM-dd');
+          const dayPosts = postsByDate.get(dateKey) || [];
+          const isToday = day.toDateString() === new Date().toDateString();
 
-        return (
-          <div
-            key={day.toISOString()}
-            className={`relative min-h-[200px] p-2 border border-border bg-background ${isToday ? 'ring-2 ring-primary' : ''}`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className={cn('font-medium', isToday && 'text-primary')}>
-                {format(day, 'EEE dd', { locale: ptBR })}
-              </span>
-              <span className="text-xs text-muted-foreground">{dayPosts.length} posts</span>
+          return (
+            <div
+              key={day.toISOString()}
+              className={`relative min-h-[200px] p-2 border border-border bg-background flex flex-col ${isToday ? 'ring-2 ring-primary' : ''}`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className={cn('font-medium', isToday && 'text-primary')}>
+                  {format(day, 'EEE dd', { locale: ptBR })}
+                </span>
+                <span className="text-xs text-muted-foreground">{dayPosts.length} posts</span>
+              </div>
+              <div className="space-y-1 flex-1 min-h-0 overflow-hidden">
+                {dayPosts.map((post, index) => (
+                  <SortablePost
+                    key={post.id}
+                    post={post}
+                    index={index}
+                    onClick={onPostClick}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="space-y-1 max-h-[160px] overflow-y-auto">
-              {dayPosts.map((post, index) => (
-                <SortablePost
-                  key={post.id}
-                  post={post}
-                  index={index}
-                  onClick={onPostClick}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -410,15 +550,17 @@ export function CalendarListView({
   });
 
   return (
-    <div className="space-y-2">
-      {sortedPosts.map((post, index) => (
-        <SortablePost
-          key={post.id}
-          post={post}
-          index={index}
-          onClick={onPostClick}
-        />
-      ))}
-    </div>
+    <TooltipProvider>
+      <div className="space-y-2">
+        {sortedPosts.map((post, index) => (
+          <SortablePost
+            key={post.id}
+            post={post}
+            index={index}
+            onClick={onPostClick}
+          />
+        ))}
+      </div>
+    </TooltipProvider>
   );
 }

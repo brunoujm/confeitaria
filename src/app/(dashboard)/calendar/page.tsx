@@ -194,9 +194,6 @@ export default function CalendarPage() {
 
       {/* Calendar Views */}
       <Card>
-        <CardHeader>
-          <CardTitle>{view === 'month' && monthName}</CardTitle>
-        </CardHeader>
         <CardContent className="pt-0">
           {view === 'month' && (
             <CalendarGrid
