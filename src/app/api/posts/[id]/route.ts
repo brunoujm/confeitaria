@@ -2,18 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { apiRateLimiter, checkRateLimit } from '@/lib/ratelimit';
-
 import { updatePostSchema } from '@/lib/validations/post';
-
-const validTransitions: Record<string, string[]> = {
-  DRAFT: ['APPROVED', 'ARCHIVED'],
-  APPROVED: ['DRAFT', 'PUBLISHED', 'ARCHIVED'],
-  PUBLISHED: ['ARCHIVED'],
-  ARCHIVED: [],
-};
+import { z } from 'zod';
 
 export async function GET(
-  req: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -29,7 +22,7 @@ export async function GET(
       include: {
         author: { select: { id: true, name: true, email: true } },
         media: { orderBy: { createdAt: 'asc' } },
-        template: { select: { id: true, name: true, structure: true, thumbnail: true } },
+        template: { select: { id: true, name: true, thumbnail: true } },
       },
     });
 
@@ -37,15 +30,32 @@ export async function GET(
       return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 });
     }
 
-    return NextResponse.json(post);
+    // Check if user owns the post (unless admin)
+    const userRole = (session.user as any).role || 'OWNER';
+    if (post.authorId !== session.user.id && userRole !== 'OWNER') {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
+    }
+
+    // Parse hashtags from JSON string
+    let hashtags: string[] = [];
+    try {
+      hashtags = post.hashtags ? JSON.parse(post.hashtags) : [];
+    } catch {
+      hashtags = [];
+    }
+
+    return NextResponse.json({
+      ...post,
+      hashtags,
+    });
   } catch (error) {
     console.error('GET /api/posts/[id] error:', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
 
-export async function PUT(
-  req: NextRequest,
+export async function PATCH(
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -53,6 +63,8 @@ export async function PUT(
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
+
+    const { id } = await params;
 
     // Rate limiting: 100 requests per minute per user
     const rateLimitResult = await checkRateLimit(apiRateLimiter, `posts:${session.user.id}`);
@@ -67,8 +79,18 @@ export async function PUT(
       return response;
     }
 
-    const { id } = await params;
-    const body = await req.json();
+    const existingPost = await prisma.post.findUnique({ where: { id } });
+    if (!existingPost) {
+      return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 });
+    }
+
+    // Check ownership
+    const userRole = (session.user as any).role || 'OWNER';
+    if (existingPost.authorId !== session.user.id && userRole !== 'OWNER') {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
+    }
+
+    const body = await request.json();
     const parsed = updatePostSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -78,36 +100,35 @@ export async function PUT(
       );
     }
 
-    const existingPost = await prisma.post.findUnique({ where: { id } });
-    if (!existingPost) {
-      return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 });
-    }
+    const { media, hashtags, scheduledAt, ...postData } = parsed.data;
 
-    // Ownership check - users can only edit their own posts
-    if (existingPost.authorId !== session.user.id) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
-    }
+    const updateData: Record<string, unknown> = {
+      ...postData,
+      ...(hashtags !== undefined && { hashtags: JSON.stringify(hashtags ?? []) }),
+      ...(scheduledAt !== undefined && { scheduledAt: scheduledAt ? new Date(scheduledAt) : null }),
+    };
 
-    // Validate status transition
-    if (parsed.data.status && parsed.data.status !== existingPost.status) {
-      const allowed = validTransitions[existingPost.status] || [];
-      if (!allowed.includes(parsed.data.status)) {
-        return NextResponse.json(
-          { error: `Transição inválida: ${existingPost.status} → ${parsed.data.status}` },
-          { status: 400 }
-        );
-      }
-    }
-
-    const { media, ...postData } = parsed.data;
-    const updateData: Record<string, unknown> = { ...postData };
-
-    if (postData.scheduledAt) updateData.scheduledAt = new Date(postData.scheduledAt);
+    // Handle status change to PUBLISHED
     if (postData.status === 'PUBLISHED' && existingPost.status !== 'PUBLISHED') {
       updateData.publishedAt = new Date();
     }
-    if (postData.status === 'ARCHIVED') {
-      updateData.publishedAt = null;
+
+    // Update media if provided
+    if (media !== undefined) {
+      await prisma.media.deleteMany({ where: { postId: id } });
+      if (media.length > 0) {
+        await prisma.media.createMany({
+          data: media.map((m, index) => ({
+            postId: id,
+            url: m.url,
+            type: m.type,
+            size: m.size ?? 0,
+            width: m.width ?? null,
+            height: m.height ?? null,
+            duration: m.duration ?? null,
+          })),
+        });
+      }
     }
 
     const post = await prisma.post.update({
@@ -120,54 +141,39 @@ export async function PUT(
       },
     });
 
-    // Handle media updates if provided
-    if (media) {
-      await prisma.media.deleteMany({ where: { postId: id } });
-      await prisma.media.createMany({
-        data: media.map((m, index) => ({
-          ...m,
-          postId: id,
-          order: m.order ?? index,
-          size: m.size ?? 0,
-        })),
-      });
+    // Parse hashtags for response
+    let parsedHashtags: string[] = [];
+    try {
+      parsedHashtags = post.hashtags ? JSON.parse(post.hashtags) : [];
+    } catch {
+      parsedHashtags = [];
     }
 
-    const response = NextResponse.json(post);
+    const response = NextResponse.json({
+      ...post,
+      hashtags: parsedHashtags,
+    });
     response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
     response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
     response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
     return response;
   } catch (error) {
-    console.error('PUT /api/posts/[id] error:', error);
-    if (error instanceof Error && error.name === 'ZodError') {
-      return NextResponse.json({ error: 'Dados inválidos', details: error }, { status: 400 });
+    console.error('PATCH /api/posts/[id] error:', error);
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Dados inválidos', details: error.flatten() }, { status: 400 });
     }
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
 
 export async function DELETE(
-  req: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
-
-    // Rate limiting: 100 requests per minute per user
-    const rateLimitResult = await checkRateLimit(apiRateLimiter, `posts:${session.user.id}`);
-    if (!rateLimitResult.success) {
-      const response = NextResponse.json(
-        { error: 'Muitas requisições. Tente novamente em um minuto.' },
-        { status: 429 }
-      );
-      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
-      return response;
     }
 
     const { id } = await params;
@@ -177,22 +183,22 @@ export async function DELETE(
       return NextResponse.json({ error: 'Post não encontrado' }, { status: 404 });
     }
 
-    // Ownership check - users can only delete their own posts
-    if (existingPost.authorId !== session.user.id) {
+    // Check ownership
+    const userRole = (session.user as any).role || 'OWNER';
+    if (existingPost.authorId !== session.user.id && userRole !== 'OWNER') {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
     }
 
-    // Soft delete - set to ARCHIVED
-    const post = await prisma.post.update({
+    // Delete associated media first (cascade should handle this, but being explicit)
+    await prisma.media.deleteMany({ where: { postId: id } });
+
+    // Archive instead of hard delete
+    await prisma.post.update({
       where: { id },
       data: { status: 'ARCHIVED' },
     });
 
-    const response = NextResponse.json({ message: 'Post arquivado com sucesso', post });
-    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-    response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
-    return response;
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('DELETE /api/posts/[id] error:', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });

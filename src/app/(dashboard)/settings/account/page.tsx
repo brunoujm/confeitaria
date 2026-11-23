@@ -162,7 +162,7 @@ export default function AccountSettingsPage() {
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== 'EXCLUIR') {
-      setMessage({ type: 'error', text: 'Digite "EXCLUIR" para confirmar' });
+      setMessage({ type: 'error', text: 'Digite &quot;EXCLUIR&quot; para confirmar' });
       return;
     }
 
@@ -410,7 +410,7 @@ export default function AccountSettingsPage() {
                   <li>Histórico de notificações</li>
                 </ul>
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="deleteConfirm">Digite "EXCLUIR" para confirmar</Label>
+                  <Label htmlFor="deleteConfirm">Digite &quot;EXCLUIR&quot; para confirmar</Label>
                   <Input
                     id="deleteConfirm"
                     value={deleteConfirmText}
