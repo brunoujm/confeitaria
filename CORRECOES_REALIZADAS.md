@@ -424,6 +424,49 @@ Análise abrangente de 35+ arquivos principais identificando **48 issues** categ
 5. **Memory Leak** - Nova instância `PrismaClient` por request em `ai/route.ts`
 6. **Rate Limiting Fail-Open** - Desabilita proteção quando Redis falha
 
+---
+
+## 16. Correção de SQL Injection em templates/route.ts (2026-11-24)
+
+### Sprint 1 - Crítico #2: SQL Injection Risk
+
+**Arquivo:** `src/app/api/templates/route.ts` (linha 36)
+
+**Problema:** Uso de string interpolation em query Prisma `contains` - vulnerável a injection em SQLite.
+
+```typescript
+// ANTES - VULNERÁVEL
+const sanitizedType = type?.replace(/[^a-zA-Z_]/g, '') || '';
+const typeFilter = sanitizedType ? { structure: { contains: `"type":"${sanitizedType}"` } } : {};
+```
+
+**Correção:** Usar Prisma JSON query com validação de valores permitidos.
+
+```typescript
+// DEPOIS - SEGURO
+const validTypes = ['FEED', 'STORIES', 'REELS', 'WHATSAPP_STATUS', 'WHATSAPP_CATALOG'] as const;
+
+const where: Record<string, unknown> = {
+  OR: [
+    { userId: session.user.id },
+    { isPublic: true },
+  ],
+};
+
+// Use Prisma JSON query to safely filter by structure.type
+if (type && validTypes.includes(type as typeof validTypes[number])) {
+  where.structure = { path: ['type'], equals: type };
+}
+```
+
+**Verificação:**
+- ✅ Build: `npm run build` - Compilação bem-sucedida
+- ✅ Testes: `npm test` - Todos os 31 testes passam
+- ✅ TypeScript: `npx tsc --noEmit` - Zero erros
+- ✅ ESLINT: Apenas warnings (nenhum erro novo)
+
+**Impacto:** Elimina risco de SQL Injection via parâmetro `type` na busca de templates.
+
 #### IMPORTANTE (18 issues - Performance/Confiabilidade)
 - N+1 queries em listagem de posts
 - Memory leak no hook `useRealtime` (listeners órfãos)
@@ -461,3 +504,87 @@ Análise abrangente de 35+ arquivos principais identificando **48 issues** categ
 | Accessibility | ~75 | >95 |
 
 **Conclusão**: Base arquitetural sólida, mas **NÃO IR PARA PRODUÇÃO** sem corrigir os 6 CRÍTICOS. Superfícies de ataque principais: auth/authorization e validação de upload.
+
+---
+
+## 17. Sprint 3 - Qualidade e Maturidade do Projeto (2026-11-24)
+
+### 17.1 QUALIDADE 01: Error Boundaries Implementados
+
+**Arquivos Criados:**
+
+#### Error Boundary Component (`src/components/ui/ErrorBoundary.tsx`)
+- Componente React class-based com `componentDidCatch` e `getDerivedStateFromError`
+- Suporte a `resetKeys`, `resetOnPropsChange` e callback `onError`
+- Fallback padrão com UI amigável (retry, go home, copiar erro)
+- Integração preparada para Sentry (verifica `window.Sentry`)
+
+#### App Router Error Pages
+- **`src/app/error.tsx`** - Error boundary para rota raiz
+- **`src/app/global-error.tsx`** - Error boundary global (erros no layout raiz)
+- **`src/app/(dashboard)/error.tsx`** - Error boundary para segmento dashboard
+- **`src/app/(auth)/error.tsx`** - Error boundary para segmento auth
+
+#### Not Found Pages
+- **`src/app/not-found.tsx`** - 404 global
+- **`src/app/(dashboard)/not-found.tsx`** - 404 para dashboard
+
+#### Loading Pages
+- **`src/app/loading.tsx`** - Loading global
+- **`src/app/(dashboard)/loading.tsx`** - Loading com skeleton do dashboard
+- **`src/app/(auth)/loading.tsx`** - Loading para autenticação
+
+**Verificação:**
+- ✅ Build: `npm run build` - Compilação bem-sucedida
+- ✅ Testes: `npm test` - Todos os 31 testes passam
+
+---
+
+### 17.2 QUALIDADE 04: Sistema de Toast Unificado Integrado
+
+**Alterações:**
+
+#### `src/components/providers.tsx`
+- Adicionado `ToastProvider` ao wrapper de providers
+- Agora disponível globalmente em toda a aplicação
+
+#### `src/components/editor/AIPanel.tsx`
+- Substituídos 4 `alert()` por `toast()` do sistema unificado
+- Variantes: `destructive` para erros, `success` para sucesso
+- Ícones apropriados (AlertTriangle, Check)
+
+#### `src/app/(auth)/register/page.tsx`
+- Removido estado local `error` 
+- Substituído por `toast()` para erros e sucesso
+- Melhor UX: toast não bloqueia UI como alert()
+
+#### Testes Atualizados (`tests/auth/register.test.tsx`)
+- Wrapper `renderWithProviders` com `ToastProvider`
+- Testes verificam mensagens de toast no DOM
+
+**Verificação:**
+- ✅ Build: `npm run build` - Compilação bem-sucedida
+- ✅ Testes: `npm test` - Todos os 31 testes passam
+
+---
+
+### Próximos Itens do Sprint 3 (Pendentes)
+
+| Item | Status | Descrição |
+|------|--------|-----------|
+| QUALIDADE 02: Testes Automatizados | ⏳ Pendente | Expandir cobertura, Playwright, MSW |
+| QUALIDADE 03: Validação Env | ⏳ Pendente | Schema Zod, validação startup |
+| QUALIDADE 05: i18n | ⏳ Pendente | next-intl, estrutura traduções |
+| QUALIDADE 06: Acessibilidade | ⏳ Pendente | WCAG 2.2 AA, contraste, teclado |
+| QUALIDADE 07: CI/CD | ⏳ Pendente | GitHub Actions workflow |
+| QUALIDADE 08: Sentry | ⏳ Pendente | @sentry/nextjs integração |
+| QUALIDADE 09: Documentação | ⏳ Pendente | Docs técnicas estruturadas |
+
+---
+
+### Arquivos de Auditoria e Documentação
+
+#### `docs/quality/sprint-3/AUDITORIA.md`
+- Auditoria completa dos 9 itens de qualidade
+- Estado atual, gaps identificados, plano de ação
+- Base para acompanhamento do progresso

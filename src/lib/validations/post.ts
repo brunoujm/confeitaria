@@ -21,6 +21,7 @@ export const createPostSchema = z.object({
 
 export const updatePostSchema = createPostSchema.partial().extend({
   id: z.string(),
+  publishedAt: z.string().datetime().optional().nullable(),
 });
 
 export const postFiltersSchema = z.object({

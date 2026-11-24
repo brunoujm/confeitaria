@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
+import OpenAI from 'openai';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { aiRateLimiter, checkRateLimit } from '@/lib/ratelimit';
@@ -224,23 +225,51 @@ export async function POST(request: NextRequest) {
     }
 
     if (data.type === 'image') {
-      // For image generation, we'd use DALL-E or similar
-      // This is a placeholder - in production, integrate with OpenAI DALL-E or similar
       const sanitizedPrompt = sanitizePromptInput(data.prompt);
       const prompt = buildImagePrompt({ ...data, prompt: sanitizedPrompt });
 
-      // Simulate image generation - replace with actual AI image generation
-      // const { image } = await generateImage({ model: openai.image('dall-e-3'), prompt, ... });
+      try {
+        // Use OpenAI SDK directly for DALL-E 3
+        const openaiClient = new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY,
+        });
 
-      // For now, return a placeholder
-      const response = NextResponse.json({
-        imageUrl: `https://via.placeholder.com/1024x1024?text=Imagem+Gerada+por+IA`,
-        prompt: prompt,
-      });
-      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
-      return response;
+        const sizeMap: Record<string, '1024x1024' | '1792x1024' | '1024x1792'> = {
+          '1:1': '1024x1024',
+          '9:16': '1024x1792',
+          '4:5': '1024x1024',
+          '16:9': '1792x1024',
+        };
+
+        const response = await openaiClient.images.generate({
+          model: 'dall-e-3',
+          prompt,
+          size: sizeMap[data.aspectRatio] || '1024x1024',
+          quality: 'hd',
+          n: 1,
+        });
+
+        const imageData = response.data?.[0];
+        const imageUrl = imageData?.url;
+        if (!imageUrl) {
+          throw new Error('No image URL returned from DALL-E');
+        }
+
+        const apiResponse = NextResponse.json({
+          imageUrl,
+          prompt,
+        });
+        apiResponse.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+        apiResponse.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+        apiResponse.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+        return apiResponse;
+      } catch (error) {
+        console.error('DALL-E image generation error:', error);
+        return NextResponse.json(
+          { error: 'Falha na geração de imagem. Verifique a API key da OpenAI.' },
+          { status: 503 }
+        );
+      }
     }
 
     const response = NextResponse.json({ error: 'Tipo não suportado' }, { status: 400 });

@@ -1,30 +1,52 @@
-import { NextResponse, NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import createMiddleware from 'next-intl/middleware';
+import { wrapMiddlewareWithSentry } from '@sentry/nextjs';
 
-export default async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const isApiAuthRoute = pathname.startsWith('/api/auth');
-  const isPublicRoute = ['/login', '/register'].includes(pathname);
+const locales = ['pt-BR', 'en'] as const;
+const defaultLocale = 'pt-BR';
 
-  if (isApiAuthRoute) return NextResponse.next();
+const intlMiddleware = createMiddleware({
+  locales,
+  defaultLocale,
+  localePrefix: 'as-needed'
+});
 
-  // Use getToken which works in Edge Runtime with JWT strategy
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  const isLoggedIn = !!token;
+async function sentryWrappedMiddleware(request: Request) {
+  const response = intlMiddleware(request as any);
 
-  if (!isLoggedIn && !isPublicRoute) {
-    const loginUrl = new URL('/login', req.url);
-    loginUrl.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
+  // Apply security headers
+  const securityHeaders = {
+    'X-DNS-Prefetch-Control': 'on',
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+    'Content-Security-Policy': [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://via.placeholder.com",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https://*.supabase.co https://api.openai.com https://api.anthropic.com wss://*.supabase.co",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; '),
+  };
 
-  if (isLoggedIn && isPublicRoute) {
-    return NextResponse.redirect(new URL('/calendar', req.url));
-  }
+  const responseWithHeaders = response instanceof Response ? response : new Response();
 
-  return NextResponse.next();
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    responseWithHeaders.headers.set(key, value);
+  });
+
+  return responseWithHeaders;
 }
 
+export default wrapMiddlewareWithSentry(sentryWrappedMiddleware);
+
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$|.*\\.ico$|.*\\.woff2?$|api|_vercel|.*\\.txt$).*)',
+  ],
 };

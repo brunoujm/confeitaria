@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { Upload, X, Video, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import NextImage from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
@@ -323,7 +324,7 @@ export function MediaUploader({
               >
                 <div className="relative w-16 h-16 flex-shrink-0 rounded overflow-hidden">
                   {file.type === 'IMAGE' ? (
-                    <img src={file.preview} alt="" className="w-full h-full object-cover" />
+                    <NextImage src={file.preview} alt="" fill className="object-cover" />
                   ) : (
                     <div className="w-full h-full bg-muted flex items-center justify-center">
                       <Video className="h-6 w-6 text-muted-foreground" />

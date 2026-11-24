@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as NetServer } from 'http';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis';
 
 interface CustomServer extends NetServer {
   io?: SocketIOServer;
@@ -12,9 +14,13 @@ interface CustomRequest extends NextRequest {
   };
 }
 
+// In-memory state (fallback when Redis is not available)
 const rooms = new Map<string, Set<string>>();
 const userCursors = new Map<string, Map<string, { x: number; y: number }>>();
 const userPresence = new Map<string, Map<string, { id: string; name: string; color: string }>>();
+
+// Redis adapter for multi-instance scaling
+let redisAdapterInitialized = false;
 
 export async function GET(request: CustomRequest) {
   const { socket } = request;
@@ -30,6 +36,21 @@ export async function GET(request: CustomRequest) {
         credentials: true,
       },
     });
+
+    // Initialize Redis adapter for multi-instance scaling
+    if (!redisAdapterInitialized && process.env.REDIS_URL) {
+      try {
+        const pubClient = createClient({ url: process.env.REDIS_URL });
+        const subClient = pubClient.duplicate();
+
+        await Promise.all([pubClient.connect(), subClient.connect()]);
+        io.adapter(createAdapter(pubClient, subClient));
+        redisAdapterInitialized = true;
+        console.log('Socket.io Redis adapter initialized');
+      } catch (error) {
+        console.warn('Failed to initialize Redis adapter, using in-memory state:', error);
+      }
+    }
 
     io.on('connection', (clientSocket) => {
       console.log('Client connected:', clientSocket.id);

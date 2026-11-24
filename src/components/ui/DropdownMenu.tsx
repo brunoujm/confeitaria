@@ -8,6 +8,7 @@ import React, {
   useEffect,
   ReactNode,
   HTMLAttributes,
+  useCallback,
 } from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,9 @@ interface DropdownMenuContextType {
   setOpen: (open: boolean) => void;
   triggerRef: React.RefObject<HTMLButtonElement>;
   contentRef: React.RefObject<HTMLDivElement>;
+  itemsRef: React.RefObject<HTMLDivElement[]>;
+  registerItem: (el: HTMLDivElement | null) => void;
+  unregisterItem: (el: HTMLDivElement | null) => void;
 }
 
 const DropdownMenuContext = createContext<DropdownMenuContextType | null>(null);
@@ -32,6 +36,67 @@ export function DropdownMenu({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const itemsRef = useRef<HTMLDivElement[]>([]);
+
+  const registerItem = useCallback((el: HTMLDivElement | null) => {
+    if (el && !itemsRef.current.includes(el)) {
+      itemsRef.current.push(el);
+    }
+  }, []);
+
+  const unregisterItem = useCallback((el: HTMLDivElement | null) => {
+    if (el) {
+      itemsRef.current = itemsRef.current.filter(item => item !== el);
+    }
+  }, []);
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (!open) return;
+
+    const items = itemsRef.current.filter(el => !el.hasAttribute('data-disabled'));
+    if (items.length === 0) return;
+
+    const activeIndex = items.findIndex(el => el === document.activeElement);
+
+    switch (event.key) {
+      case 'Escape':
+        event.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+        break;
+      case 'Tab':
+        // Allow default tab behavior but close on tab out
+        if (activeIndex === -1) {
+          // Focus moved to trigger or outside
+        }
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        const nextIndex = (activeIndex + 1) % items.length;
+        items[nextIndex]?.focus();
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        const prevIndex = (activeIndex - 1 + items.length) % items.length;
+        items[prevIndex]?.focus();
+        break;
+      case 'Home':
+        event.preventDefault();
+        items[0]?.focus();
+        break;
+      case 'End':
+        event.preventDefault();
+        items[items.length - 1]?.focus();
+        break;
+      case 'Enter':
+      case ' ':
+        if (activeIndex >= 0) {
+          event.preventDefault();
+          items[activeIndex].click();
+        }
+        break;
+    }
+  }, [open]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -50,8 +115,8 @@ export function DropdownMenu({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <DropdownMenuContext.Provider value={{ open, setOpen, triggerRef, contentRef }}>
-      {children}
+    <DropdownMenuContext.Provider value={{ open, setOpen, triggerRef, contentRef, itemsRef, registerItem, unregisterItem }}>
+      <div onKeyDown={handleKeyDown}>{children}</div>
     </DropdownMenuContext.Provider>
   );
 }
@@ -140,18 +205,35 @@ export function DropdownMenuItem({
   className,
   onClick,
   asChild,
+  disabled,
   ...props
 }: {
   children: ReactNode;
   className?: string;
   onClick?: () => void;
   asChild?: boolean;
+  disabled?: boolean;
 } & HTMLAttributes<HTMLDivElement>) {
-  const { setOpen } = useDropdownMenu();
+  const { setOpen, registerItem, unregisterItem } = useDropdownMenu();
+  const itemRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    registerItem(itemRef.current);
+    return () => unregisterItem(itemRef.current);
+  }, [registerItem, unregisterItem]);
 
   const handleClick = () => {
+    if (disabled) return;
     onClick?.();
     setOpen(false);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (disabled) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleClick();
+    }
   };
 
   if (asChild) {
@@ -164,6 +246,9 @@ export function DropdownMenuItem({
     return (
       <Slot>
         {React.cloneElement(validChild, {
+          ref: itemRef,
+          tabIndex: disabled ? undefined : 0,
+          'data-disabled': disabled ? '' : undefined,
           className: cn(
             'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
             validChild.props.className,
@@ -172,6 +257,10 @@ export function DropdownMenuItem({
           onClick: (e: React.MouseEvent) => {
             handleClick();
             validChild.props.onClick?.(e);
+          },
+          onKeyDown: (e: React.KeyboardEvent) => {
+            handleKeyDown(e);
+            validChild.props.onKeyDown?.(e);
           },
           ...props,
           ...validChild.props,
@@ -182,11 +271,15 @@ export function DropdownMenuItem({
 
   return (
     <div
+      ref={itemRef}
+      tabIndex={disabled ? undefined : 0}
+      data-disabled={disabled ? '' : undefined}
       className={cn(
         'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         className
       )}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       {...props}
     >
       {children}

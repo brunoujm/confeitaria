@@ -1,6 +1,10 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import RegisterPage from '@/app/(auth)/register/page';
+import { ToastProvider } from '@/components/ui/Toast';
+import { NextIntlClientProvider } from 'next-intl';
+import RegisterPage from '@/app/[locale]/(auth)/register/page';
+import ptBR from '../../messages/pt-BR.json';
+import type { AbstractIntlMessages } from 'next-intl';
 
 // Mock next-auth/react
 jest.mock('next-auth/react', () => ({
@@ -13,13 +17,22 @@ jest.mock('next-auth/react', () => ({
 
 import { signIn } from 'next-auth/react';
 
+// Wrapper component with ToastProvider and NextIntlClientProvider
+const renderWithProviders = (ui: React.ReactElement) => {
+  return render(
+    <NextIntlClientProvider messages={ptBR as unknown as AbstractIntlMessages} locale="pt-BR">
+      <ToastProvider>{ui}</ToastProvider>
+    </NextIntlClientProvider>
+  );
+};
+
 describe('Register Page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   test('renders register form with name, email, password, and confirm password fields', () => {
-    render(<RegisterPage />);
+    renderWithProviders(<RegisterPage />);
 
     expect(screen.getByLabelText(/nome/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
@@ -29,7 +42,7 @@ describe('Register Page', () => {
   });
 
   test('shows validation error for empty name', async () => {
-    render(<RegisterPage />);
+    renderWithProviders(<RegisterPage />);
 
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/^senha$/i);
@@ -47,7 +60,7 @@ describe('Register Page', () => {
   });
 
   test('shows validation error for invalid email', async () => {
-    render(<RegisterPage />);
+    renderWithProviders(<RegisterPage />);
 
     const nameInput = screen.getByLabelText(/nome/i);
     const emailInput = screen.getByLabelText(/email/i);
@@ -72,7 +85,7 @@ describe('Register Page', () => {
       json: async () => ({ error: 'Este email já está cadastrado' }),
     });
 
-    render(<RegisterPage />);
+    renderWithProviders(<RegisterPage />);
 
     const nameInput = screen.getByLabelText(/nome/i);
     const emailInput = screen.getByLabelText(/email/i);
@@ -87,12 +100,13 @@ describe('Register Page', () => {
     await userEvent.click(submitButton);
 
     await waitFor(() => {
+      expect(screen.getByText(/erro ao criar conta/i)).toBeInTheDocument();
       expect(screen.getByText(/este email já está cadastrado/i)).toBeInTheDocument();
     });
   });
 
   test('shows validation error for short password', async () => {
-    render(<RegisterPage />);
+    renderWithProviders(<RegisterPage />);
 
     const nameInput = screen.getByLabelText(/nome/i);
     const emailInput = screen.getByLabelText(/email/i);
@@ -112,7 +126,7 @@ describe('Register Page', () => {
   });
 
   test('shows validation error for mismatched passwords', async () => {
-    render(<RegisterPage />);
+    renderWithProviders(<RegisterPage />);
 
     const nameInput = screen.getByLabelText(/nome/i);
     const emailInput = screen.getByLabelText(/email/i);
@@ -132,8 +146,8 @@ describe('Register Page', () => {
   });
 
   test('calls register API on valid submit', async () => {
-    render(<RegisterPage />);
+    renderWithProviders(<RegisterPage />);
 
-    expect(screen.getByRole('link', { name: /entrar/i })).toHaveAttribute('href', '/login');
+    expect(screen.getByRole('link', { name: /entrar/i })).toHaveAttribute('href', '/pt-BR/login');
   });
 });

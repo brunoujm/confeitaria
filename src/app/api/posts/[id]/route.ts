@@ -102,6 +102,24 @@ export async function PATCH(
 
     const { media, hashtags, scheduledAt, ...postData } = parsed.data;
 
+    // Validate status transitions
+    const validTransitions: Record<string, string[]> = {
+      DRAFT: ['APPROVED', 'ARCHIVED'],
+      APPROVED: ['DRAFT', 'PUBLISHED', 'ARCHIVED'],
+      PUBLISHED: ['ARCHIVED'],
+      ARCHIVED: ['DRAFT'], // Allow restoring archived posts to draft
+    };
+
+    if (postData.status && postData.status !== existingPost.status) {
+      const allowedTransitions = validTransitions[existingPost.status] || [];
+      if (!allowedTransitions.includes(postData.status)) {
+        return NextResponse.json(
+          { error: `Transição de status inválida: ${existingPost.status} → ${postData.status}` },
+          { status: 400 }
+        );
+      }
+    }
+
     const updateData: Record<string, unknown> = {
       ...postData,
       ...(hashtags !== undefined && { hashtags: JSON.stringify(hashtags ?? []) }),
@@ -111,6 +129,11 @@ export async function PATCH(
     // Handle status change to PUBLISHED
     if (postData.status === 'PUBLISHED' && existingPost.status !== 'PUBLISHED') {
       updateData.publishedAt = new Date();
+    }
+
+    // Handle status change from ARCHIVED to DRAFT (restore)
+    if (postData.status === 'DRAFT' && existingPost.status === 'ARCHIVED') {
+      updateData.publishedAt = null;
     }
 
     // Update media if provided

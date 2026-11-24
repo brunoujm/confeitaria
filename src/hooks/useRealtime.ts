@@ -39,6 +39,7 @@ export function useRealtime({
   const [cursors, setCursors] = useState<Map<string, CursorPosition>>(new Map());
   const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
   const userColorRef = useRef<string>('#E85D75');
+  const handlersRef = useRef<Record<string, (...args: unknown[]) => void>>({});
 
   // Generate consistent color for user
   useEffect(() => {
@@ -60,73 +61,74 @@ export function useRealtime({
     const socket = connectSocket();
     socketRef.current = socket;
 
-    socket.on('connect', () => {
-      console.log('Socket connected:', socket.id);
-      setIsConnected(true);
-      socket.emit('post:join', postId);
+    // Define all handlers with stable references (type inferred, cast for storage)
+    const handlers = {
+      connect: () => {
+        setIsConnected(true);
+        socket.emit('post:join', postId);
+      },
+      disconnect: () => {
+        setIsConnected(false);
+      },
+      'room:users': (roomUsers: UserPresence[]) => {
+        setUsers(roomUsers.filter(u => u.id !== socket.id));
+      },
+      'room:cursors': (roomCursors: [string, CursorPosition][]) => {
+        const cursorMap = new Map(roomCursors);
+        if (socket.id) {
+          cursorMap.delete(socket.id);
+        }
+        setCursors(cursorMap);
+      },
+      'presence:join': (user: UserPresence) => {
+        setUsers(prev => {
+          if (prev.some(u => u.id === user.id)) return prev;
+          return [...prev, user];
+        });
+        onUserJoin?.(user);
+      },
+      'presence:leave': (userId: string) => {
+        setUsers(prev => prev.filter(u => u.id !== userId));
+        setCursors(prev => {
+          const next = new Map(prev);
+          next.delete(userId);
+          return next;
+        });
+        onUserLeave?.(userId);
+      },
+      'cursor:update': (data: { userId: string; cursor: { x: number; y: number } }) => {
+        if (data.userId === socket.id) return;
+        setCursors(prev => {
+          const next = new Map(prev);
+          next.set(data.userId, { userId: data.userId, ...data.cursor });
+          return next;
+        });
+        onCursorUpdate?.({ userId: data.userId, ...data.cursor });
+      },
+      'post:update': (data: { postId: string; updates: Record<string, unknown> }) => {
+        if (data.postId === postId) {
+          onPostUpdate?.(data.updates);
+        }
+      },
+    };
+
+    // Store handlers for cleanup
+    handlersRef.current = handlers as Record<string, (...args: unknown[]) => void>;
+
+    // Register all event listeners
+    Object.entries(handlers).forEach(([event, handler]) => {
+      socket.on(event, handler);
     });
 
-    socket.on('disconnect', () => {
-      console.log('Socket disconnected');
-      setIsConnected(false);
-    });
+    socket.emit('post:join', postId);
 
-    socket.on('room:users', (roomUsers: UserPresence[]) => {
-      setUsers(roomUsers.filter(u => u.id !== socket.id));
-    });
-
-    socket.on('room:cursors', (roomCursors: [string, CursorPosition][]) => {
-      const cursorMap = new Map(roomCursors);
-      if (socket.id) {
-        cursorMap.delete(socket.id);
-      }
-      setCursors(cursorMap);
-    });
-
-    socket.on('presence:join', (user: UserPresence) => {
-      setUsers(prev => {
-        if (prev.some(u => u.id === user.id)) return prev;
-        return [...prev, user];
-      });
-      onUserJoin?.(user);
-    });
-
-    socket.on('presence:leave', (userId: string) => {
-      setUsers(prev => prev.filter(u => u.id !== userId));
-      setCursors(prev => {
-        const next = new Map(prev);
-        next.delete(userId);
-        return next;
-      });
-      onUserLeave?.(userId);
-    });
-
-    socket.on('cursor:update', (data: { userId: string; cursor: { x: number; y: number } }) => {
-      if (data.userId === socket.id) return;
-      setCursors(prev => {
-        const next = new Map(prev);
-        next.set(data.userId, { userId: data.userId, ...data.cursor });
-        return next;
-      });
-      onCursorUpdate?.({ userId: data.userId, ...data.cursor });
-    });
-
-    socket.on('post:update', (data: { postId: string; updates: Record<string, unknown> }) => {
-      if (data.postId === postId) {
-        onPostUpdate?.(data.updates);
-      }
-    });
-
+    // Cleanup function - properly remove all listeners
     return () => {
       socket.emit('post:leave', postId);
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('room:users');
-      socket.off('room:cursors');
-      socket.off('presence:join');
-      socket.off('presence:leave');
-      socket.off('cursor:update');
-      socket.off('post:update');
+      Object.entries(handlersRef.current).forEach(([event, handler]) => {
+        socket.off(event, handler);
+      });
+      handlersRef.current = {};
     };
   }, [postId, userId, onPostUpdate, onUserJoin, onUserLeave, onCursorUpdate]);
 

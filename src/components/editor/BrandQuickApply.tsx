@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Palette, Type, Image as ImageIcon, Copy, Sparkles, Loader2 } from 'lucide-react';
+import NextImage from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
@@ -268,7 +269,7 @@ export function BrandQuickApply({
               {brand.logoUrl && (
                 <div className="relative p-3 rounded-lg border bg-background">
                   <div className="aspect-square rounded bg-muted flex items-center justify-center mb-2">
-                    <img src={brand.logoUrl} alt="Logo principal" className="max-w-full max-h-full object-contain p-2" />
+                    <NextImage src={brand.logoUrl} alt="Logo principal" fill className="object-contain p-2" />
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Principal</span>
@@ -285,7 +286,7 @@ export function BrandQuickApply({
               {brand.logoDarkUrl && (
                 <div className="relative p-3 rounded-lg border bg-background">
                   <div className="aspect-square rounded bg-gray-800 flex items-center justify-center mb-2">
-                    <img src={brand.logoDarkUrl} alt="Logo modo escuro" className="max-w-full max-h-full object-contain p-2" />
+                    <NextImage src={brand.logoDarkUrl} alt="Logo modo escuro" fill className="object-contain p-2" />
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Modo Escuro</span>
@@ -319,7 +320,7 @@ export function BrandQuickApply({
                   </Button>
                 </div>
                 <div className="aspect-video rounded bg-muted flex items-center justify-center">
-                  <img src={brand.watermarkUrl} alt="Watermark" className="max-w-full max-h-full object-contain p-2 opacity-50" />
+                  <NextImage src={brand.watermarkUrl} alt="Watermark" fill className="object-contain p-2 opacity-50" />
                 </div>
               </div>
             )}

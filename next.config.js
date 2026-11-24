@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const withNextIntl = require('next-intl/plugin')('./src/lib/i18n.ts');
+
 const withPWA = require('next-pwa')({
   dest: 'public',
   register: true,
@@ -153,6 +155,8 @@ const withPWA = require('next-pwa')({
   ],
 });
 
+const { withSentryConfig } = require('@sentry/nextjs');
+
 const nextConfig = {
   images: {
     domains: ['supabase.co', 'images.unsplash.com', 'via.placeholder.com', 'fonts.gstatic.com'],
@@ -233,4 +237,28 @@ const nextConfig = {
   },
 };
 
-module.exports = withPWA(nextConfig);
+module.exports = withSentryConfig(withPWA(withNextIntl(nextConfig)), {
+  // Silent mode - não falha o build se Sentry não estiver configurado
+  silent: true,
+
+  // Upload de source maps apenas em produção
+  // Requer SENTRY_AUTH_TOKEN e SENTRY_ORG/SENTRY_PROJECT configurados
+  widenClientFileUpload: true,
+
+  // Transpila SDK do Sentry para funcionar no Edge Runtime
+  transpileClientSDK: true,
+
+  // Anotações de source map para React
+  reactComponentAnnotation: {
+    enabled: true,
+  },
+
+  // Tunnel para evitar bloqueio por ad-blockers (opcional)
+  // tunnelRoute: '/monitoring',
+
+  // Oculta logs de build do Sentry
+  hideSourceMaps: true,
+
+  // Desabilita upload de source maps em desenvolvimento
+  disableLogger: process.env.NODE_ENV === 'development',
+});

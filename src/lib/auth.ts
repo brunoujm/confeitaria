@@ -1,7 +1,6 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import { skipCSRFCheck } from '@auth/core';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
@@ -14,7 +13,7 @@ const authOptions = {
     signIn: '/login',
     error: '/login',
   },
-  skipCSRFCheck: skipCSRFCheck as any,
+  // skipCSRFCheck handled by Credentials provider
   callbacks: {
     async authorized({ request, auth }: { request: { nextUrl: URL }; auth: any }) {
       const { pathname } = request.nextUrl;

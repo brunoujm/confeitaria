@@ -1,6 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import LoginPage from '@/app/(auth)/login/page';
+import { NextIntlClientProvider } from 'next-intl';
+import LoginPage from '@/app/[locale]/(auth)/login/page';
+import ptBR from '../../messages/pt-BR.json';
+import type { AbstractIntlMessages } from 'next-intl';
 
 // Mock next-auth/react
 jest.mock('next-auth/react', () => ({
@@ -13,13 +16,22 @@ jest.mock('next-auth/react', () => ({
 
 import { signIn } from 'next-auth/react';
 
+// Wrapper with NextIntlClientProvider
+const renderWithIntl = (ui: React.ReactElement) => {
+  return render(
+    <NextIntlClientProvider messages={ptBR as unknown as AbstractIntlMessages} locale="pt-BR">
+      {ui}
+    </NextIntlClientProvider>
+  );
+};
+
 describe('Login Page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   test('renders login form with email and password fields', () => {
-    render(<LoginPage />);
+    renderWithIntl(<LoginPage />);
 
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/senha/i)).toBeInTheDocument();
@@ -27,7 +39,7 @@ describe('Login Page', () => {
   });
 
   test('shows validation error for invalid email', async () => {
-    render(<LoginPage />);
+    renderWithIntl(<LoginPage />);
 
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/senha/i);
@@ -43,7 +55,7 @@ describe('Login Page', () => {
   });
 
   test('shows validation error for short password', async () => {
-    render(<LoginPage />);
+    renderWithIntl(<LoginPage />);
 
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/senha/i);
@@ -61,7 +73,7 @@ describe('Login Page', () => {
   test('calls signIn with credentials on valid submit', async () => {
     (signIn as jest.Mock).mockResolvedValue({ ok: true, error: null });
 
-    render(<LoginPage />);
+    renderWithIntl(<LoginPage />);
 
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/senha/i);
@@ -83,7 +95,7 @@ describe('Login Page', () => {
   test('shows error when signIn fails', async () => {
     (signIn as jest.Mock).mockResolvedValue({ ok: false, error: 'Credenciais inválidas' });
 
-    render(<LoginPage />);
+    renderWithIntl(<LoginPage />);
 
     const emailInput = screen.getByLabelText(/email/i);
     const passwordInput = screen.getByLabelText(/senha/i);
@@ -99,8 +111,8 @@ describe('Login Page', () => {
   });
 
   test('has link to register page', () => {
-    render(<LoginPage />);
+    renderWithIntl(<LoginPage />);
 
-    expect(screen.getByRole('link', { name: /criar conta/i })).toHaveAttribute('href', '/register');
+    expect(screen.getByRole('link', { name: /criar conta/i })).toHaveAttribute('href', '/pt-BR/register');
   });
 });

@@ -2,6 +2,7 @@
 
 import { forwardRef, HTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
+import NextImage from 'next/image';
 
 interface AvatarProps extends HTMLAttributes<HTMLDivElement> {}
 
@@ -22,10 +23,12 @@ interface AvatarImageProps extends HTMLAttributes<HTMLImageElement> {
 }
 
 export const AvatarImage = forwardRef<HTMLImageElement, AvatarImageProps>(
-  ({ className, ...props }, ref) => (
-    <img
-      ref={ref}
+  ({ className, alt, ...props }, ref) => (
+    <NextImage
+      ref={ref as React.RefObject<HTMLImageElement>}
       className={cn('aspect-square h-full w-full', className)}
+      alt={alt}
+      fill
       {...props}
     />
   )

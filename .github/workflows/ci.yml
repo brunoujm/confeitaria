@@ -1,0 +1,268 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+# Permissões mínimas necessárias
+permissions:
+  contents: read
+  # Necessário para upload de artifacts (coverage, build)
+  actions: read
+
+# Cancela runs anteriores na mesma branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================
+  # LINT & TYPECHECK
+  # ==========================================
+  lint-and-typecheck:
+    name: Lint & TypeCheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+        # npm ci garante instalação reproduzível baseada no package-lock.json
+
+      - name: Run ESLint
+        run: npm run lint
+        # Falha se houver erros (warnings não falham o build)
+
+      - name: Run TypeScript type check
+        run: npx tsc --noEmit
+        # Verifica tipos sem emitir arquivos
+
+  # ==========================================
+  # TESTS
+  # ==========================================
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+
+      - name: Setup test database
+        run: |
+          # Usa SQLite em memória para testes
+          cp .env.example .env.test
+          # DATABASE_URL já aponta para file:./dev.db no .env.example
+          # Para CI, podemos usar um arquivo temporário
+          export DATABASE_URL="file:./test.db"
+
+      - name: Push database schema
+        run: npm run db:push
+        env:
+          DATABASE_URL: file:./test.db
+
+      - name: Run tests
+        run: npm test
+        env:
+          DATABASE_URL: file:./test.db
+          NODE_ENV: test
+
+      - name: Upload coverage (if enabled)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # ==========================================
+  # BUILD
+  # ==========================================
+  build:
+    name: Build Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [lint-and-typecheck, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+
+      - name: Build application
+        run: npm run build
+        env:
+          # Variáveis necessárias para build (valores dummy para CI)
+          DATABASE_URL: file:./build.db
+          NEXTAUTH_URL: http://localhost:3000
+          NEXTAUTH_SECRET: ci-test-secret-minimum-32-characters-long
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
+          SUPABASE_STORAGE_BUCKET: media
+          OPENAI_API_KEY: placeholder-openai-key
+          ANTHROPIC_API_KEY: placeholder-anthropic-key
+          NEXT_PUBLIC_SOCKET_URL: http://localhost:3000
+          SOCKET_SECRET: ci-socket-secret
+          NODE_ENV: production
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build
+          path: |
+            .next/
+            public/
+          retention-days: 7
+
+  # ==========================================
+  # SECURITY AUDIT (Opcional - não falha o build)
+  # ==========================================
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high || true
+        # Não falha o build, apenas reporta
+
+      - name: Run Snyk (if configured)
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+          args: --severity-threshold=high
+
+  # ==========================================
+  # DEPLOY PREVIEW (Apenas em PRs para main/master)
+  # ==========================================
+  deploy-preview:
+    name: Deploy Preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build]
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nextjs-build
+          path: .next/
+
+      # Deploy para Vercel Preview (requer configuração no Vercel)
+      # Descomente e configure se usar Vercel:
+      # - name: Deploy to Vercel Preview
+      #   uses: amondnet/vercel-action@v25
+      #   with:
+      #     vercel-token: ${{ secrets.VERCEL_TOKEN }}
+      #     vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+      #     vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+      #     vercel-args: '--prod=false'
+      #   env:
+      #     # Variáveis de ambiente para preview
+      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      #     NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      #     # ... outras secrets
+
+      - name: Preview deployment placeholder
+        run: echo "📦 Build artifacts ready for preview deployment"
+        # Configure Vercel/Netlify/outro provedor para deploy automático de preview
+
+  # ==========================================
+  # DEPLOY PRODUCTION (Manual - requer aprovação)
+  # ==========================================
+  deploy-production:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nextjs-build
+          path: .next/
+
+      # Deploy para Vercel Production (requer configuração no Vercel)
+      # Descomente e configure se usar Vercel:
+      # - name: Deploy to Vercel Production
+      #   uses: amondnet/vercel-action@v25
+      #   with:
+      #     vercel-token: ${{ secrets.VERCEL_TOKEN }}
+      #     vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+      #     vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+      #     vercel-args: '--prod=true'
+      #   env:
+      #     DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      #     NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      #     NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      #     NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      #     SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      #     OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      #     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      #     UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+      #     UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+      #     NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL }}
+      #     SOCKET_SECRET: ${{ secrets.SOCKET_SECRET }}
+      #     CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+      - name: Production deployment placeholder
+        run: echo "🚀 Ready for production deployment"
+        # Configure Vercel/outro provedor para deploy automático de produção
+        # Requer aprovação manual via environment protection rules no GitHub

@@ -31,18 +31,23 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
 
-    // Sanitize type parameter to prevent injection
-    const sanitizedType = type?.replace(/[^a-zA-Z_]/g, '') || '';
-    const typeFilter = sanitizedType ? { structure: { contains: `"type":"${sanitizedType}"` } } : {};
+    // Valid PostType values to prevent injection
+    const validTypes = ['FEED', 'STORIES', 'REELS', 'WHATSAPP_STATUS', 'WHATSAPP_CATALOG'] as const;
+
+    const where: Record<string, unknown> = {
+      OR: [
+        { userId: session.user.id },
+        { isPublic: true },
+      ],
+    };
+
+    // Use Prisma JSON query to safely filter by structure.type
+    if (type && validTypes.includes(type as typeof validTypes[number])) {
+      where.structure = { path: ['type'], equals: type };
+    }
 
     const templates = await prisma.template.findMany({
-      where: {
-        OR: [
-          { userId: session.user.id },
-          { isPublic: true },
-        ],
-        ...typeFilter,
-      },
+      where,
       include: {
         user: {
           select: { id: true, name: true, email: true },

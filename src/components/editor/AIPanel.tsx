@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, Loader2, Copy, Check, X, MessageSquare, Image as ImageIcon, Zap } from 'lucide-react';
+import { Sparkles, Loader2, Copy, Check, X, MessageSquare, Image as ImageIcon, Zap, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Textarea } from '@/components/ui/Textarea';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/Label';
 import { Input } from '@/components/ui/Input';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/Toast';
 
 interface AIPanelProps {
   onGenerateCaption: (caption: string) => void;
@@ -55,7 +56,11 @@ export function AIPanel({
   postType = 'FEED',
 }: AIPanelProps) {
   const [activeTab, setActiveTab] = useState<'caption' | 'hashtags' | 'image'>('caption');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [loadingStates, setLoadingStates] = useState<Record<'caption' | 'hashtags' | 'image', boolean>>({
+    caption: false,
+    hashtags: false,
+    image: false,
+  });
   const [generatedContent, setGeneratedContent] = useState('');
   const [showResult, setShowResult] = useState(false);
 
@@ -76,10 +81,12 @@ export function AIPanel({
   const [imageStyle, setImageStyle] = useState('photorealistic');
   const [imageAspectRatio, setImageAspectRatio] = useState<'1:1' | '9:16' | '4:5' | '16:9'>('1:1');
 
+  const { toast } = useToast();
+
   const handleGenerateCaption = async () => {
     if (!captionTopic.trim()) return;
 
-    setIsGenerating(true);
+    setLoadingStates(prev => ({ ...prev, caption: true }));
     try {
       const response = await fetch('/api/ai', {
         method: 'POST',
@@ -102,16 +109,20 @@ export function AIPanel({
       setShowResult(true);
     } catch (error) {
       console.error('Erro:', error);
-      alert('Erro ao gerar legenda. Tente novamente.');
+      toast({
+        title: 'Erro ao gerar legenda',
+        description: 'Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
     } finally {
-      setIsGenerating(false);
+      setLoadingStates(prev => ({ ...prev, caption: false }));
     }
   };
 
   const handleGenerateHashtags = async () => {
     if (!hashtagTopic.trim()) return;
 
-    setIsGenerating(true);
+    setLoadingStates(prev => ({ ...prev, hashtags: true }));
     try {
       const response = await fetch('/api/ai', {
         method: 'POST',
@@ -132,16 +143,20 @@ export function AIPanel({
       setShowResult(true);
     } catch (error) {
       console.error('Erro:', error);
-      alert('Erro ao gerar hashtags. Tente novamente.');
+      toast({
+        title: 'Erro ao gerar hashtags',
+        description: 'Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
     } finally {
-      setIsGenerating(false);
+      setLoadingStates(prev => ({ ...prev, hashtags: false }));
     }
   };
 
   const handleGenerateImage = async () => {
     if (!imagePrompt.trim()) return;
 
-    setIsGenerating(true);
+    setLoadingStates(prev => ({ ...prev, image: true }));
     try {
       const response = await fetch('/api/ai', {
         method: 'POST',
@@ -158,12 +173,20 @@ export function AIPanel({
 
       const data = await response.json();
       onGenerateImage(data.imageUrl);
-      alert('Imagem gerada com sucesso!');
+      toast({
+        title: 'Imagem gerada com sucesso!',
+        description: 'A imagem foi adicionada ao post.',
+        variant: 'success',
+      });
     } catch (error) {
       console.error('Erro:', error);
-      alert('Erro ao gerar imagem. Tente novamente.');
+      toast({
+        title: 'Erro ao gerar imagem',
+        description: 'Tente novamente mais tarde.',
+        variant: 'destructive',
+      });
     } finally {
-      setIsGenerating(false);
+      setLoadingStates(prev => ({ ...prev, image: false }));
     }
   };
 
@@ -290,10 +313,10 @@ export function AIPanel({
 
             <Button
               onClick={handleGenerateCaption}
-              disabled={!captionTopic.trim() || isGenerating}
+              disabled={!captionTopic.trim() || loadingStates.caption}
               className="w-full"
             >
-              {isGenerating ? (
+              {loadingStates.caption ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Gerando...
@@ -356,10 +379,10 @@ export function AIPanel({
 
             <Button
               onClick={handleGenerateHashtags}
-              disabled={!hashtagTopic.trim() || isGenerating}
+              disabled={!hashtagTopic.trim() || loadingStates.hashtags}
               className="w-full"
             >
-              {isGenerating ? (
+              {loadingStates.hashtags ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Gerando...
@@ -423,11 +446,11 @@ export function AIPanel({
 
             <Button
               onClick={handleGenerateImage}
-              disabled={!imagePrompt.trim() || isGenerating}
+              disabled={!imagePrompt.trim() || loadingStates.image}
               className="w-full"
               variant="outline"
             >
-              {isGenerating ? (
+              {loadingStates.image ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Gerando imagem...

@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { type Post, type PostFiltersInput } from '@/lib/validations/post';
 
 async function fetchPosts(filters: PostFiltersInput) {
@@ -60,7 +61,29 @@ async function deletePost(id: string) {
 }
 
 export function usePosts(filters: PostFiltersInput = { page: 1, limit: 50 }) {
-  const mergedFilters: PostFiltersInput = {
+  // Create stable query key by serializing filter values
+  const queryKey = useMemo(() => [
+    'posts',
+    filters.view,
+    filters.start,
+    filters.end,
+    filters.type?.join(','),
+    filters.status?.join(','),
+    filters.authorId,
+    filters.page,
+    filters.limit,
+  ], [
+    filters.view,
+    filters.start,
+    filters.end,
+    filters.type?.join(','),
+    filters.status?.join(','),
+    filters.authorId,
+    filters.page,
+    filters.limit,
+  ]);
+
+  const mergedFilters: PostFiltersInput = useMemo(() => ({
     page: filters.page ?? 1,
     limit: filters.limit ?? 50,
     view: filters.view,
@@ -69,9 +92,19 @@ export function usePosts(filters: PostFiltersInput = { page: 1, limit: 50 }) {
     type: filters.type,
     status: filters.status,
     authorId: filters.authorId,
-  };
+  }), [
+    filters.page,
+    filters.limit,
+    filters.view,
+    filters.start,
+    filters.end,
+    filters.type?.join(','),
+    filters.status?.join(','),
+    filters.authorId,
+  ]);
+
   return useQuery({
-    queryKey: ['posts', mergedFilters],
+    queryKey,
     queryFn: () => fetchPosts(mergedFilters),
   });
 }

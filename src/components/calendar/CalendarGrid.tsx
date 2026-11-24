@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, memo } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -95,7 +95,7 @@ const TYPE_LABELS: Record<string, string> = {
   WHATSAPP_CATALOG: 'WhatsApp Catálogo',
 };
 
-function SortablePost({ post, index, onClick, isCompact = false }: SortablePostProps) {
+const SortablePost = memo(function SortablePost({ post, index, onClick, isCompact = false }: SortablePostProps) {
   const {
     attributes,
     listeners,
@@ -125,6 +125,13 @@ function SortablePost({ post, index, onClick, isCompact = false }: SortablePostP
 
   const authorName = post.author?.name || '—';
 
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onClick?.(post);
+    }
+  };
+
   return (
     <TooltipProvider>
       <div
@@ -137,7 +144,11 @@ function SortablePost({ post, index, onClick, isCompact = false }: SortablePostP
           isDragging && 'ring-2 ring-primary ring-offset-2',
           isCompact ? 'p-1.5' : 'p-2'
         )}
+        tabIndex={0}
         onClick={() => onClick?.(post)}
+        onKeyDown={handleKeyDown}
+        role="button"
+        aria-label={`Post: ${post.title}, ${typeLabel}, ${statusLabel}${scheduledTime ? `, agendado para ${scheduledTime}` : ''}`}
         {...attributes}
         {...listeners}
       >
@@ -215,8 +226,9 @@ function SortablePost({ post, index, onClick, isCompact = false }: SortablePostP
                   e.stopPropagation();
                   // TODO: Open context menu
                 }}
+                aria-label="Mais opções"
               >
-                <MoreHorizontal className="h-3 w-3" />
+                <MoreHorizontal className="h-3 w-3" aria-hidden="true" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="left" align="center">
@@ -227,7 +239,7 @@ function SortablePost({ post, index, onClick, isCompact = false }: SortablePostP
       </div>
     </TooltipProvider>
   );
-}
+});
 
 function DayCell({ date, isCurrentMonth, isToday, posts, onPostClick, maxVisiblePosts = 3 }: DayCellProps) {
   const dayNumber = date.getDate();

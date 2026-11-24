@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Search, LayoutGrid, Plus, Edit2, Trash2, Copy, Check, Loader2 } from 'lucide-react';
+import NextImage from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -346,10 +347,11 @@ export function TemplateSelector({
               >
                 {template.thumbnail && (
                   <div className="aspect-video rounded mb-2 overflow-hidden bg-muted">
-                    <img
+                    <NextImage
                       src={template.thumbnail}
                       alt={template.name}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
                     />
                   </div>
                 )}

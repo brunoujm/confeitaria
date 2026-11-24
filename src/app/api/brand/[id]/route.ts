@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { apiRateLimiter, checkRateLimit } from '@/lib/ratelimit';
+import { parseBrand, serializeBrand } from '@/lib/brand';
 
 const updateBrandSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -30,20 +31,6 @@ const updateBrandSchema = z.object({
   defaultHashtags: z.array(z.string()).optional(),
   isDefault: z.boolean().optional(),
 }).partial();
-
-const parseBrand = (brand: {
-  colors: string;
-  fonts: string;
-  logos: string;
-  defaultHashtags: string;
-  [key: string]: unknown;
-}) => ({
-  ...brand,
-  colors: JSON.parse(brand.colors),
-  fonts: JSON.parse(brand.fonts),
-  logos: JSON.parse(brand.logos),
-  defaultHashtags: JSON.parse(brand.defaultHashtags),
-});
 
 export async function GET(
   request: NextRequest,
@@ -129,13 +116,7 @@ export async function PUT(
 
     const updatedBrand = await prisma.brandIdentity.update({
       where: { id },
-      data: {
-        ...validation.data,
-        colors: validation.data.colors ? JSON.stringify(validation.data.colors) : undefined,
-        fonts: validation.data.fonts ? JSON.stringify(validation.data.fonts) : undefined,
-        logos: validation.data.logos ? JSON.stringify(validation.data.logos) : undefined,
-        defaultHashtags: validation.data.defaultHashtags ? JSON.stringify(validation.data.defaultHashtags) : undefined,
-      },
+      data: serializeBrand(validation.data as any),
     });
 
     const response = NextResponse.json({ brand: parseBrand(updatedBrand) });

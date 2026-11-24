@@ -1,6 +1,7 @@
 import { getToken } from 'next-auth/jwt';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { wrapMiddlewareWithSentry } from '@sentry/nextjs';
 
 const publicRoutes = ['/login', '/register'];
 const apiAuthPrefix = '/api/auth';
@@ -33,7 +34,7 @@ function applySecurityHeaders(response: NextResponse) {
   return response;
 }
 
-export async function middleware(request: NextRequest) {
+async function sentryWrappedMiddleware(request: NextRequest) {
   const { nextUrl } = request;
   const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
   const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
@@ -65,6 +66,9 @@ export async function middleware(request: NextRequest) {
 
   return applySecurityHeaders(NextResponse.next());
 }
+
+// Wrap middleware with Sentry for error tracking
+export const middleware = wrapMiddlewareWithSentry(sentryWrappedMiddleware);
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$|.*\\.ico$|.*\\.woff2?$).*)'],
