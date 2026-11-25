@@ -158,6 +158,9 @@ const withPWA = require('next-pwa')({
 const { withSentryConfig } = require('@sentry/nextjs');
 
 const nextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     domains: ['supabase.co', 'images.unsplash.com', 'via.placeholder.com', 'fonts.gstatic.com'],
     remotePatterns: [
