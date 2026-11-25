@@ -412,7 +412,7 @@ export default function AccountSettingsPage() {
                   <li>Histórico de notificações</li>
                 </ul>
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="deleteConfirm">Digite "EXCLUIR" para confirmar</Label>
+                  <Label htmlFor="deleteConfirm">Digite &quot;EXCLUIR&quot; para confirmar</Label>
                   <Input
                     id="deleteConfirm"
                     value={deleteConfirmText}
