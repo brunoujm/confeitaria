@@ -1,16 +1,17 @@
 'use client';
 
 import { useCallback, useState, memo } from 'react';
+import type {
+  DragStartEvent,
+  DragOverEvent,
+  DragEndEvent} from '@dnd-kit/core';
 import {
   DndContext,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
-  useSensors,
-  DragStartEvent,
-  DragOverEvent,
-  DragEndEvent,
+  useSensors
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -144,10 +145,8 @@ const SortablePost = memo(function SortablePost({ post, index, onClick, isCompac
           isDragging && 'ring-2 ring-primary ring-offset-2',
           isCompact ? 'p-1.5' : 'p-2'
         )}
-        tabIndex={0}
         onClick={() => onClick?.(post)}
         onKeyDown={handleKeyDown}
-        role="button"
         aria-label={`Post: ${post.title}, ${typeLabel}, ${statusLabel}${scheduledTime ? `, agendado para ${scheduledTime}` : ''}`}
         {...attributes}
         {...listeners}

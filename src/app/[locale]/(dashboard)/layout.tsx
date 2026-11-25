@@ -55,18 +55,18 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed top-0 left-0 z-50 h-screen w-64 bg-card border-r transition-transform duration-200 lg:translate-x-0',
+          'fixed top-0 left-0 z-50 h-screen w-64 bg-card border-r border-[hsl(var(--border))] transition-transform duration-200 lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-16 items-center justify-between px-6 border-b">
-            <Link href="/calendar" className="text-xl font-semibold">
+          <div className="flex h-16 items-center justify-between px-6 border-b border-[hsl(var(--border))]">
+            <Link href="/calendar" className="text-xl font-bold text-foreground">
               Doce Sabor
             </Link>
             <button
-              className="lg:hidden p-2 rounded-md hover:bg-accent"
+              className="lg:hidden p-2 rounded-md hover:bg-[hsl(var(--accent))] transition-colors"
               onClick={() => setSidebarOpen(false)}
               aria-label="Fechar menu"
             >
@@ -86,7 +86,7 @@ export default function DashboardLayout({
                     'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      : 'text-muted-foreground hover:bg-[hsl(var(--accent))] hover:text-foreground'
                   )}
                   aria-current={isActive ? 'page' : undefined}
                 >
@@ -98,7 +98,7 @@ export default function DashboardLayout({
           </nav>
 
           {/* User info */}
-          <div className="border-t p-4">
+          <div className="border-t border-[hsl(var(--border))] p-4">
             <div className="flex items-center gap-3">
               <Avatar className="h-9 w-9">
                 {session?.user?.image ? (
@@ -119,11 +119,11 @@ export default function DashboardLayout({
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top header */}
-        <header className="sticky top-0 z-30 h-16 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+        <header className="sticky top-0 z-30 h-16 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-[hsl(var(--border))]">
           <div className="flex h-full items-center justify-between px-4 lg:px-6">
             {/* Mobile menu button */}
             <button
-              className="lg:hidden p-2 rounded-md hover:bg-accent"
+              className="lg:hidden p-2 rounded-md hover:bg-[hsl(var(--accent))] transition-colors"
               onClick={() => setSidebarOpen(true)}
               aria-label="Abrir menu"
             >
@@ -137,8 +137,8 @@ export default function DashboardLayout({
 
             {/* Right side actions */}
             <div className="flex items-center gap-2">
-              {/* Notification bell - placeholder for Task 11 */}
-              <button className="relative p-2 rounded-full hover:bg-accent transition-colors" aria-label="Notificações, 3 não lidas">
+              {/* Notification bell */}
+              <button className="relative p-2 rounded-full hover:bg-[hsl(var(--accent))] transition-colors" aria-label="Notificações, 3 não lidas">
                 <Bell className="h-5 w-5" aria-hidden="true" />
                 <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-destructive text-[10px] font-medium text-white flex items-center justify-center" aria-hidden="true">
                   3

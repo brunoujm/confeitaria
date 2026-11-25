@@ -67,8 +67,8 @@ const STATUS_LABELS: Record<PostStatus, string> = {
 
 const STATUS_COLORS: Record<PostStatus, string> = {
   DRAFT: 'bg-muted text-muted-foreground border-dashed',
-  APPROVED: 'bg-green-100 text-green-700 border-green-200',
-  PUBLISHED: 'bg-blue-100 text-blue-700 border-blue-200',
+  APPROVED: 'bg-success/10 text-success border-success/20',
+  PUBLISHED: 'bg-primary/10 text-primary border-primary/20',
   ARCHIVED: 'bg-muted text-muted-foreground',
 };
 
@@ -388,7 +388,7 @@ export function PostEditor({ initialData, isEditing = false }: PostEditorProps) 
                   <DialogHeader>
                     <DialogTitle>Excluir post</DialogTitle>
                     <DialogDescription>
-                      Esta ação moverá o post para &quot;Arquivado&quot;. Tem certeza?
+                      Esta ação moverá o post para "Arquivado". Tem certeza?
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
@@ -431,7 +431,6 @@ export function PostEditor({ initialData, isEditing = false }: PostEditorProps) 
               <Button
                 onClick={() => handleSave('PUBLISHED')}
                 disabled={isSaving || !title.trim()}
-                variant="primary"
                 className="w-full"
               >
                 <Calendar className="h-4 w-4 mr-2" />
@@ -522,8 +521,8 @@ export function PostEditor({ initialData, isEditing = false }: PostEditorProps) 
                     <div className={cn(
                       'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
                       isConnected
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
+                        ? 'bg-success/10 text-success'
+                        : 'bg-destructive/10 text-destructive'
                     )}>
                       {isConnected ? (
                         <>
@@ -660,7 +659,7 @@ export function PostEditor({ initialData, isEditing = false }: PostEditorProps) 
                       <input
                         type="text"
                         placeholder="Adicionar hashtag (#...)"
-                        className="flex-1 min-w-[150px] px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="flex-1 min-w-[150px] px-3 py-1.5 border border-[hsl(var(--border))] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && e.currentTarget.value.trim()) {
                             e.preventDefault();

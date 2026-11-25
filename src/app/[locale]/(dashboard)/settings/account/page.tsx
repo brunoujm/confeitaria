@@ -163,7 +163,7 @@ export default function AccountSettingsPage() {
 
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== 'EXCLUIR') {
-      setMessage({ type: 'error', text: 'Digite &quot;EXCLUIR&quot; para confirmar' });
+      setMessage({ type: 'error', text: 'Digite "EXCLUIR" para confirmar' });
       return;
     }
 
@@ -211,7 +211,7 @@ export default function AccountSettingsPage() {
       </div>
 
       {message && (
-        <Alert className={`${message.type === 'success' ? 'border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-900/20' : 'border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20'}`}>
+        <Alert className={`${message.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900/30' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/30'}`}>
           <AlertDescription className="flex items-center gap-2">
             {message.type === 'success' ? (
               <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -219,6 +219,7 @@ export default function AccountSettingsPage() {
               <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
             )}
             {message.text}
+            <button onClick={clearMessage} className="ml-auto text-xs hover:underline">Dispensar</button>
           </AlertDescription>
         </Alert>
       )}
@@ -386,23 +387,23 @@ export default function AccountSettingsPage() {
 
         {/* Danger Zone Tab */}
         <TabsContent value="danger" className="pt-6">
-          <Card className="border-red-200 dark:border-red-900/30">
+          <Card className="border-destructive/20 dark:border-destructive/30">
             <CardHeader>
-              <CardTitle className="text-red-600 dark:text-red-400 flex items-center gap-2">
+              <CardTitle className="text-destructive flex items-center gap-2">
                 <Delete className="h-5 w-5" />
                 Zona de Perigo
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg">
-                <h4 className="font-medium text-red-800 dark:text-red-200 mb-2 flex items-center gap-2">
+              <div className="p-4 bg-destructive/10 dark:bg-destructive/20 border border-destructive/20 rounded-lg">
+                <h4 className="font-medium text-destructive mb-2 flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
                   Excluir conta permanentemente
                 </h4>
-                <p className="text-red-700 dark:text-red-300 text-sm mb-4">
+                <p className="text-destructive/80 text-sm mb-4">
                   Esta ação é <strong>irreversível</strong>. Todos os seus dados serão permanentemente excluídos:
                 </p>
-                <ul className="text-red-700 dark:text-red-300 text-sm space-y-1 ml-4 list-disc">
+                <ul className="text-destructive/80 text-sm space-y-1 ml-4 list-disc">
                   <li>Todos os posts (rascunhos, agendados, publicados e arquivados)</li>
                   <li>Todos os templates criados</li>
                   <li>Todas as mídias enviadas</li>
@@ -411,7 +412,7 @@ export default function AccountSettingsPage() {
                   <li>Histórico de notificações</li>
                 </ul>
                 <div className="space-y-2 mt-4">
-                  <Label htmlFor="deleteConfirm">Digite &quot;EXCLUIR&quot; para confirmar</Label>
+                  <Label htmlFor="deleteConfirm">Digite "EXCLUIR" para confirmar</Label>
                   <Input
                     id="deleteConfirm"
                     value={deleteConfirmText}

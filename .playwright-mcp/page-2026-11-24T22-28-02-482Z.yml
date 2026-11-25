@@ -1,0 +1,37 @@
+- generic [ref=f1e2]:
+  - complementary [ref=f1e3]:
+    - generic [ref=f1e4]:
+      - generic [ref=f1e5]:
+        - link "Doce Sabor" [ref=f1e6] [cursor=pointer]:
+          - /url: /calendar
+        - button "Fechar menu" [ref=f1e7] [cursor=pointer]
+      - navigation "Navegação principal" [ref=f1e11]:
+        - link "Calendário" [ref=f1e12] [cursor=pointer]:
+          - /url: /calendar
+        - link "Posts" [ref=f1e18] [cursor=pointer]:
+          - /url: /posts
+        - link "Galeria" [ref=f1e22] [cursor=pointer]:
+          - /url: /gallery
+        - link "Templates" [ref=f1e28] [cursor=pointer]:
+          - /url: /templates
+        - link "Marca" [ref=f1e34] [cursor=pointer]:
+          - /url: /brand
+        - link "Configurações" [ref=f1e41] [cursor=pointer]:
+          - /url: /settings
+      - generic [ref=f1e46]:
+        - generic [ref=f1e47]: U
+        - generic [ref=f1e49]:
+          - paragraph [ref=f1e50]: Usuário
+          - paragraph
+  - generic [ref=f1e51]:
+    - banner [ref=f1e52]:
+      - generic [ref=f1e53]:
+        - button "Abrir menu" [ref=f1e54] [cursor=pointer]
+        - heading "Calendário" [level=1] [ref=f1e56]
+        - generic [ref=f1e57]:
+          - button "Notificações, 3 não lidas" [ref=f1e58] [cursor=pointer]:
+            - generic [aria-hidden] [ref=f1e62]: "3"
+          - button "U Usuário" [ref=f1e64] [cursor=pointer]:
+            - generic [ref=f1e65]: U
+            - generic [ref=f1e67]: Usuário
+    - main [ref=f1e70]

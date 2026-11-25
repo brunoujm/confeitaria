@@ -1,13 +1,14 @@
 'use client';
 
+import type {
+  ReactNode,
+  HTMLAttributes} from 'react';
 import React, {
   createContext,
   useContext,
   useState,
   useRef,
   useEffect,
-  ReactNode,
-  HTMLAttributes,
   useCallback,
 } from 'react';
 import { Slot } from '@radix-ui/react-slot';
@@ -65,10 +66,6 @@ export function DropdownMenu({ children }: { children: ReactNode }) {
         triggerRef.current?.focus();
         break;
       case 'Tab':
-        // Allow default tab behavior but close on tab out
-        if (activeIndex === -1) {
-          // Focus moved to trigger or outside
-        }
         break;
       case 'ArrowDown':
         event.preventDefault();
@@ -127,7 +124,6 @@ export function DropdownMenuTrigger({ children, className, asChild, ...props }: 
   const handleClick = () => setOpen(!open);
 
   if (asChild) {
-    // Slot expects a single React element child
     const childArray = React.Children.toArray(children);
     const validChild = childArray.find(React.isValidElement) as React.ReactElement | undefined;
 
@@ -189,7 +185,7 @@ export function DropdownMenuContent({
     <div
       ref={contentRef}
       className={cn(
-        'fixed z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md',
+        'fixed z-50 min-w-[12rem] overflow-hidden rounded-lg border border-[hsl(var(--border))] bg-popover p-1 text-popover-foreground shadow-lg',
         align === 'end' && 'right-0',
         align === 'center' && 'left-1/2 -translate-x-1/2'
       )}
@@ -237,7 +233,6 @@ export function DropdownMenuItem({
   };
 
   if (asChild) {
-    // Slot expects a single React element child
     const childArray = React.Children.toArray(children);
     const validChild = childArray.find(React.isValidElement) as React.ReactElement | undefined;
 
@@ -250,7 +245,7 @@ export function DropdownMenuItem({
           tabIndex: disabled ? undefined : 0,
           'data-disabled': disabled ? '' : undefined,
           className: cn(
-            'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+            'relative flex cursor-default select-none items-center rounded-md px-2 py-1.5 text-sm outline-none transition-colors focus:bg-[hsl(var(--accent))] focus:text-[hsl(var(--accent-foreground))] data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
             validChild.props.className,
             className
           ),
@@ -275,7 +270,7 @@ export function DropdownMenuItem({
       tabIndex={disabled ? undefined : 0}
       data-disabled={disabled ? '' : undefined}
       className={cn(
-        'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+        'relative flex cursor-default select-none items-center rounded-md px-2 py-1.5 text-sm outline-none transition-colors focus:bg-[hsl(var(--accent))] focus:text-[hsl(var(--accent-foreground))] data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
         className
       )}
       onClick={handleClick}
@@ -289,6 +284,6 @@ export function DropdownMenuItem({
 
 export function DropdownMenuSeparator({ className, ...props }: { className?: string } & HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn('-mx-1 my-1 h-px bg-muted', className)} {...props} />
+    <div className={cn('-mx-1 my-1 h-px bg-[hsl(var(--border))]', className)} {...props} />
   );
 }

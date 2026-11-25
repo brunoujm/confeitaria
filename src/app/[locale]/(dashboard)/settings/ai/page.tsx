@@ -35,6 +35,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Separator } from '@/components/ui/Separator';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/Dialog';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
+import { cn } from '@/lib/utils';
 
 interface AIConfig {
   openaiModel: string;
@@ -280,7 +281,7 @@ export default function AISettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <Bot className="h-8 w-8" />
@@ -288,7 +289,7 @@ export default function AISettingsPage() {
           </h1>
           <p className="text-muted-foreground">Configure modelos, parâmetros e presets de inteligência artificial</p>
         </div>
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
             <p className="mt-4 text-muted-foreground">Carregando configurações...</p>
@@ -299,7 +300,7 @@ export default function AISettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-5xl animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
@@ -310,10 +311,19 @@ export default function AISettingsPage() {
       </div>
 
       {message && (
-        <Alert className={`${message.type === 'success' ? 'border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-900/20' : 'border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20'}`} onClose={clearMessage}>
+        <Alert className={cn(
+          message.type === 'success'
+            ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900/30'
+            : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/30'
+        )}>
           <AlertDescription className="flex items-center gap-2">
-            {message.type === 'success' ? <Check className="h-4 w-4 text-green-600 dark:text-green-400" /> : <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />}
+            {message.type === 'success' ? (
+              <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+            )}
             {message.text}
+            <button onClick={clearMessage} className="ml-auto text-xs hover:underline">Dispensar</button>
           </AlertDescription>
         </Alert>
       )}
@@ -333,7 +343,7 @@ export default function AISettingsPage() {
 
         {/* Config Tab */}
         <TabsContent value="config" className="pt-6 space-y-6">
-          <Card>
+          <Card variant="default">
             <CardHeader>
               <CardTitle>Configuração de Modelos</CardTitle>
               <CardDescription>Defina quais modelos de IA usar para cada tipo de geração</CardDescription>
@@ -440,7 +450,7 @@ export default function AISettingsPage() {
           </Card>
 
           {/* Rate Limit Info */}
-          <Card className="border-yellow-200 dark:border-yellow-900/30 bg-yellow-50 dark:bg-yellow-900/10">
+          <Card variant="default" className="border-yellow-200 dark:border-yellow-900/30 bg-yellow-50 dark:bg-yellow-900/10">
             <CardContent className="pt-6">
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
@@ -474,7 +484,7 @@ export default function AISettingsPage() {
           </div>
 
           {presets.length === 0 ? (
-            <Card>
+            <Card variant="default">
               <CardContent className="py-12 text-center">
                 <Sparkles className="h-12 w-12 mx-auto text-muted-foreground/30" />
                 <h3 className="mt-4 text-lg font-medium">Nenhum preset criado</h3>
@@ -488,7 +498,7 @@ export default function AISettingsPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {presets.map(preset => (
-                <Card key={preset.id} className={preset.isDefault ? 'ring-2 ring-primary' : ''}>
+                <Card key={preset.id} variant="default" className={cn(preset.isDefault ? 'ring-2 ring-primary' : '')}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
@@ -499,7 +509,7 @@ export default function AISettingsPage() {
                           <div className="flex items-center gap-2">
                             <h3 className="font-semibold">{preset.name}</h3>
                             {preset.isDefault && (
-                              <Badge variant="default" className="text-xs">Padrão</Badge>
+                              <Badge variant="secondary" className="text-xs">Padrão</Badge>
                             )}
                           </div>
                           <Badge variant="outline" className="text-xs mt-1">
@@ -614,7 +624,7 @@ export default function AISettingsPage() {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use variáveis entre chaves duplas: &#123;&#123;variavel&#125;&#125;. Ex: &#123;&#123;tema&#125;&#125;, &#123;&#123;tom&#125;&#125;, &#123;&#123;ocasião&#125;&#125;
+                  Use variáveis entre chaves duplas: &#123;&#123;variavel&#125;&#125;. Ex: &#123;&#123;tema&#125;&#125;, &#123;&#123;tom&#125;&#125;, &#123;&#123;ocasiao&#125;&#125;
                 </p>
               </div>
 
@@ -701,7 +711,7 @@ export default function AISettingsPage() {
                     id="presetIsDefault"
                     checked={presetForm.isDefault}
                     onChange={(e) => setPresetForm(prev => ({ ...prev, isDefault: e.target.checked }))}
-                    className="rounded border-input"
+                    className="rounded border-[hsl(var(--input))]"
                   />
                   <Label htmlFor="presetIsDefault" className="text-sm font-normal cursor-pointer">
                     Definir como padrão para este tipo
@@ -713,7 +723,7 @@ export default function AISettingsPage() {
                     id="presetIsPublic"
                     checked={presetForm.isPublic}
                     onChange={(e) => setPresetForm(prev => ({ ...prev, isPublic: e.target.checked }))}
-                    className="rounded border-input"
+                    className="rounded border-[hsl(var(--input))]"
                   />
                   <Label htmlFor="presetIsPublic" className="text-sm font-normal cursor-pointer">
                     Público (outros usuários podem ver)
@@ -730,7 +740,7 @@ export default function AISettingsPage() {
                 {editingPreset ? 'Atualizar' : 'Criar'}
               </Button>
             </DialogFooter>
-          </form>
+            </form>
         </DialogContent>
       </Dialog>
     </div>

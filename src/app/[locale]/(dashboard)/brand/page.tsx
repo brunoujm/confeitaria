@@ -33,6 +33,8 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/Popover
 import { Separator } from '@/components/ui/Separator';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { Badge } from '@/components/ui/Badge';
+import { cn } from '@/lib/utils';
 
 interface BrandIdentity {
   id: string;
@@ -289,12 +291,12 @@ export default function BrandPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Identidade Visual</h1>
           <p className="text-muted-foreground">Gerencie cores, fontes, logos e hashtags da marca</p>
         </div>
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
             <p className="mt-4 text-muted-foreground">Carregando identidade visual...</p>
@@ -305,7 +307,7 @@ export default function BrandPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -339,13 +341,13 @@ export default function BrandPage() {
       {brand && (
         <>
           {/* Current Brand Display */}
-          <Card>
+          <Card variant="default">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   {brand.name}
                   {brand.isDefault && (
-                    <span className="px-2 py-0.5 text-xs bg-primary/10 text-primary rounded-full">Padrão</span>
+                    <Badge variant="secondary" className="px-2 py-0.5 text-xs">Padrão</Badge>
                   )}
                 </CardTitle>
                 <p className="text-muted-foreground">Identidade visual ativa</p>
@@ -391,7 +393,7 @@ export default function BrandPage() {
                 </TabsList>
 
                 {/* Colors Tab */}
-                <TabsContent value="colors" className="pt-4">
+                <TabsContent value="colors" className="pt-4 animate-fade-in">
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {Object.entries(brand.colors).map(([key, value]) => (
                       <div key={key} className="space-y-2">
@@ -436,7 +438,7 @@ export default function BrandPage() {
                 </TabsContent>
 
                 {/* Fonts Tab */}
-                <TabsContent value="fonts" className="pt-4">
+                <TabsContent value="fonts" className="pt-4 animate-fade-in">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
                       <h4 className="font-medium">Fonte de Títulos</h4>
@@ -484,7 +486,7 @@ export default function BrandPage() {
                 </TabsContent>
 
                 {/* Logos Tab */}
-                <TabsContent value="logos" className="pt-4">
+                <TabsContent value="logos" className="pt-4 animate-fade-in">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {[
                       { key: 'main' as const, label: 'Logo Principal', desc: 'Versão principal para fundos claros' },
@@ -526,7 +528,7 @@ export default function BrandPage() {
                 </TabsContent>
 
                 {/* Hashtags Tab */}
-                <TabsContent value="hashtags" className="pt-4">
+                <TabsContent value="hashtags" className="pt-4 animate-fade-in">
                   <div className="space-y-4">
                     <div className="flex flex-wrap gap-2">
                       {brand.defaultHashtags.map((tag, i) => (
@@ -568,7 +570,7 @@ export default function BrandPage() {
       )}
 
       {!brand && (
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <Palette className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-muted-foreground mb-4">Nenhuma identidade visual configurada</p>
@@ -736,7 +738,7 @@ export default function BrandPage() {
                     type="checkbox"
                     checked={editingBrand?.isDefault || false}
                     onChange={() => {}}
-                    className="rounded border-input"
+                    className="rounded border-[hsl(var(--input))]"
                   />
                   <span className="text-sm">Definir como identidade padrão</span>
                 </label>

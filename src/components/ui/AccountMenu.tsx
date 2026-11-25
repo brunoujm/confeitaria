@@ -19,7 +19,7 @@ export function AccountMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-accent transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-[hsl(var(--accent))] transition-colors"
       >
         <Avatar className="h-8 w-8">
           {session?.user?.image ? (

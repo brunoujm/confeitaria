@@ -1,6 +1,7 @@
 'use client';
 
-import { forwardRef, HTMLAttributes } from 'react';
+import type { HTMLAttributes } from 'react';
+import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 import NextImage from 'next/image';
 
@@ -41,7 +42,8 @@ export const AvatarFallback = forwardRef<HTMLDivElement, AvatarFallbackProps>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex h-full w-full items-center justify-center rounded-full bg-muted', className)}
+      className={cn('flex h-full w-full items-center justify-center rounded-full bg-muted font-medium text-sm', className)}
+      aria-hidden="true"
       {...props}
     />
   )

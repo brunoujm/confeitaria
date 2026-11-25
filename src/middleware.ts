@@ -11,6 +11,14 @@ const intlMiddleware = createMiddleware({
 });
 
 async function sentryWrappedMiddleware(request: Request) {
+  const url = new URL(request.url);
+
+  // Redirect root path to calendar (default locale)
+  if (url.pathname === '/') {
+    const redirectUrl = new URL('/calendar', request.url);
+    return Response.redirect(redirectUrl, 307);
+  }
+
   const response = intlMiddleware(request as any);
 
   // Apply security headers
@@ -47,6 +55,7 @@ export default wrapMiddlewareWithSentry(sentryWrappedMiddleware);
 
 export const config = {
   matcher: [
+    '/',
     '/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$|.*\\.ico$|.*\\.woff2?$|api|_vercel|.*\\.txt$).*)',
   ],
 };

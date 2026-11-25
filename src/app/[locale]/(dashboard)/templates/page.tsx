@@ -1,12 +1,13 @@
 'use client';
 
+import React, { useState, useEffect, useCallback } from 'react';
+
 export const viewport = {
   themeColor: "#E85D75",
   width: "device-width",
   initialScale: 1,
 };
 
-import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
@@ -31,6 +32,7 @@ import { Separator } from '@/components/ui/Separator';
 import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/Badge';
 
 interface Template {
   id: string;
@@ -272,11 +274,11 @@ export default function TemplatesPage() {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'FEED': return 'bg-primary/20 text-primary';
-      case 'STORIES': return 'bg-purple/20 text-purple';
-      case 'REELS': return 'bg-orange/20 text-orange';
+      case 'FEED': return 'bg-primary/10 text-primary border-primary/20';
+      case 'STORIES': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400';
+      case 'REELS': return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400';
       case 'WHATSAPP_STATUS':
-      case 'WHATSAPP_CATALOG': return 'bg-green/20 text-green';
+      case 'WHATSAPP_CATALOG': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
       default: return 'bg-muted';
     }
   };
@@ -287,7 +289,7 @@ export default function TemplatesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -307,7 +309,7 @@ export default function TemplatesPage() {
       </div>
 
       {/* Filters and Search */}
-      <Card>
+      <Card variant="default">
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
@@ -337,23 +339,43 @@ export default function TemplatesPage() {
                 {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={view === 'grid' ? 'primary' : 'outline'}
-                size="icon"
+            <div className="flex items-center gap-1 rounded-lg bg-[hsl(var(--muted))] p-1" role="tablist">
+              <button
+                role="tab"
+                aria-selected={view === 'grid'}
+                aria-controls="templates-panel-grid"
+                id="templates-tab-grid"
+                tabIndex={view === 'grid' ? 0 : -1}
                 onClick={() => setView('grid')}
+                onFocus={() => setView('grid')}
+                className={cn(
+                  'p-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2',
+                  view === 'grid'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
                 aria-label="Visualização em grade"
               >
                 <Grid className="h-4 w-4" aria-hidden="true" />
-              </Button>
-              <Button
-                variant={view === 'list' ? 'primary' : 'outline'}
-                size="icon"
+              </button>
+              <button
+                role="tab"
+                aria-selected={view === 'list'}
+                aria-controls="templates-panel-list"
+                id="templates-tab-list"
+                tabIndex={view === 'list' ? 0 : -1}
                 onClick={() => setView('list')}
+                onFocus={() => setView('list')}
+                className={cn(
+                  'p-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2',
+                  view === 'list'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
                 aria-label="Visualização em lista"
               >
                 <List className="h-4 w-4" aria-hidden="true" />
-              </Button>
+              </button>
             </div>
           </div>
         </CardContent>
@@ -361,14 +383,14 @@ export default function TemplatesPage() {
 
       {/* Templates Grid/List */}
       {isLoading ? (
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
             <p className="mt-4 text-muted-foreground">Carregando templates...</p>
           </CardContent>
         </Card>
       ) : filteredTemplates.length === 0 ? (
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <LayoutDashboard className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-muted-foreground">
@@ -383,13 +405,18 @@ export default function TemplatesPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card variant="default">
           <CardContent className="pt-0">
             {view === 'grid' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
+              <div
+                role="tabpanel"
+                id="templates-panel-grid"
+                aria-labelledby="templates-tab-grid"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4"
+              >
                 {filteredTemplates.map((template) => (
                   <div key={template.id} className="flex flex-col h-full">
-                    <Card className="flex-1 flex flex-col">
+                    <Card variant="default" className="flex-1 flex flex-col">
                       {/* Thumbnail */}
                       <div className="aspect-video bg-muted relative overflow-hidden">
                         {template.thumbnail ? (
@@ -401,11 +428,11 @@ export default function TemplatesPage() {
                         )}
                         <div className="absolute top-2 right-2 flex gap-1">
                           {template.isPublic && (
-                            <span className="px-2 py-0.5 text-xs bg-green/20 text-green rounded">Público</span>
+                            <Badge variant="success" className="px-2 py-0.5 text-xs">Público</Badge>
                           )}
-                          <span className={cn('px-2 py-0.5 text-xs rounded', getTypeColor(template.structure.type || 'FEED'))}>
+                          <Badge className={cn('px-2 py-0.5 text-xs', getTypeColor(template.structure.type || 'FEED'))}>
                             {getTypeLabel(template.structure.type || 'FEED')}
-                          </span>
+                          </Badge>
                         </div>
                       </div>
 
@@ -418,11 +445,11 @@ export default function TemplatesPage() {
 
                       <CardContent className="flex-1 flex flex-col">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-                          <span className="px-2 py-0.5 rounded bg-muted">{template.category}</span>
+                          <Badge variant="secondary" className="px-2 py-0.5 rounded">{template.category}</Badge>
                           <span>por {template.user.name || template.user.email}</span>
                         </div>
 
-                        <div className="mt-auto pt-3 border-t flex gap-2">
+                        <div className="mt-auto pt-3 border-t border-[hsl(var(--border))] flex gap-2">
                           <Button variant="outline" size="sm" className="flex-1" onClick={() => handleUseTemplate(template)}>
                             Usar
                           </Button>
@@ -461,7 +488,12 @@ export default function TemplatesPage() {
                 ))}
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div
+                role="tabpanel"
+                id="templates-panel-list"
+                aria-labelledby="templates-tab-list"
+                className="divide-y divide-[hsl(var(--border))]"
+              >
                 {filteredTemplates.map((template) => (
                   <div key={template.id} className="flex items-center gap-4 p-4">
                     <div className="w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted relative">
@@ -475,18 +507,18 @@ export default function TemplatesPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-medium truncate">{template.name}</h3>
-                        <span className={cn('px-2 py-0.5 text-xs rounded', getTypeColor(template.structure.type || 'FEED'))}>
+                        <Badge className={cn('px-2 py-0.5 text-xs', getTypeColor(template.structure.type || 'FEED'))}>
                           {getTypeLabel(template.structure.type || 'FEED')}
-                        </span>
+                        </Badge>
                         {template.isPublic && (
-                          <span className="px-2 py-0.5 text-xs bg-green/20 text-green rounded">Público</span>
+                          <Badge variant="success" className="px-2 py-0.5 text-xs">Público</Badge>
                         )}
                       </div>
                       {template.description && (
                         <p className="text-sm text-muted-foreground line-clamp-1">{template.description}</p>
                       )}
                       <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                        <span className="px-2 py-0.5 rounded bg-muted">{template.category}</span>
+                        <Badge variant="secondary" className="px-2 py-0.5 rounded">{template.category}</Badge>
                         <span>por {template.user.name || template.user.email}</span>
                         <span>{new Date(template.updatedAt).toLocaleDateString('pt-BR')}</span>
                       </div>
@@ -606,10 +638,10 @@ export default function TemplatesPage() {
                 <Label>Hashtags Padrão</Label>
                 <div className="flex flex-wrap gap-2">
                   {formData.structure.hashtags.map((tag, i) => (
-                    <span key={i} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm flex items-center gap-1">
+                    <Badge key={i} variant="outline" className="gap-1">
                       #{tag}
-                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, structure: { ...prev.structure, hashtags: prev.structure.hashtags.filter((_, idx) => idx !== i) } }))} className="text-primary hover:text-primary/70">×</button>
-                    </span>
+                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, structure: { ...prev.structure, hashtags: prev.structure.hashtags.filter((_, idx) => idx !== i) } }))} className="hover:text-destructive">×</button>
+                    </Badge>
                   ))}
                   <input
                     type="text"
@@ -621,7 +653,7 @@ export default function TemplatesPage() {
                         e.currentTarget.value = '';
                       }
                     }}
-                    className="px-3 py-1 border rounded-full text-sm flex-1 min-w-[150px]"
+                    className="px-3 py-1 border border-[hsl(var(--border))] rounded-full text-sm flex-1 min-w-[150px] focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -664,7 +696,7 @@ export default function TemplatesPage() {
                     type="checkbox"
                     checked={formData.isPublic}
                     onChange={(e) => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))}
-                    className="rounded border-input"
+                    className="rounded border-[hsl(var(--input))]"
                   />
                   <span className="text-sm">Template público (outros usuários podem ver e usar)</span>
                 </label>
@@ -706,7 +738,7 @@ export default function TemplatesPage() {
           </DialogHeader>
           <div className="flex h-[70vh] overflow-hidden">
             {/* Sidebar - Components Palette */}
-            <div className="w-64 border-r bg-muted/30 p-4 overflow-y-auto">
+            <div className="w-64 border-r bg-[hsl(var(--muted))/0.3] p-4 overflow-y-auto">
               <h4 className="font-medium mb-3">Elementos</h4>
               <div className="space-y-2">
                 {[
@@ -719,7 +751,7 @@ export default function TemplatesPage() {
                 ].map(el => (
                   <button
                     key={el.id}
-                    className="w-full p-3 border rounded-lg text-left hover:bg-background transition-colors flex items-center gap-2"
+                    className="w-full p-3 border border-[hsl(var(--border))] rounded-lg text-left hover:bg-background transition-colors flex items-center gap-2"
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData('element', el.id)}
                   >
@@ -732,7 +764,7 @@ export default function TemplatesPage() {
 
             {/* Canvas */}
             <div className="flex-1 flex flex-col">
-              <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
+              <div className="p-4 border-b bg-[hsl(var(--muted))/0.3] flex items-center justify-between">
                 <h4 className="font-medium">Canvas ({formData.structure.type || 'FEED'})</h4>
                 <div className="flex items-center gap-2">
                   <Select value={formData.structure.type} onValueChange={(v) => setFormData(prev => ({ ...prev, structure: { ...prev.structure, type: v as any } }))}>
@@ -774,7 +806,7 @@ export default function TemplatesPage() {
               </div>
 
               {/* Properties Panel */}
-              <div className="w-80 border-l bg-muted/30 p-4 overflow-y-auto">
+              <div className="w-80 border-l bg-[hsl(var(--muted))/0.3] p-4 overflow-y-auto">
                 <h4 className="font-medium mb-3">Propriedades</h4>
                 <p className="text-sm text-muted-foreground">Selecione um elemento no canvas para editar suas propriedades</p>
               </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CursorPosition } from '@/hooks/useRealtime';
+import type { CursorPosition } from '@/hooks/useRealtime';
 
 interface CursorOverlayProps {
   cursors: Map<string, CursorPosition>;

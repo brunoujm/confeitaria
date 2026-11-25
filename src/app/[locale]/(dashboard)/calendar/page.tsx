@@ -17,9 +17,10 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarGrid, CalendarWeekView, CalendarListView } from '@/components/calendar/CalendarGrid';
 import { usePosts } from '@/hooks/usePosts';
-import { Post, PostType, PostStatus } from '@/lib/validations/post';
+import type { Post, PostType, PostStatus } from '@/lib/validations/post';
 import { cn } from '@/lib/utils';
 import { ClientOnly } from '@/components/ClientOnly';
+import { Badge } from '@/components/ui/Badge';
 
 function CalendarContent() {
   const router = useRouter();
@@ -45,8 +46,8 @@ function CalendarContent() {
   const posts = data?.posts || [];
   const filteredPosts = searchQuery
     ? posts.filter((post: Post) =>
-          post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          post.caption?.toLowerCase().includes(searchQuery.toLowerCase())
+        post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.caption?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : posts;
 
@@ -58,7 +59,6 @@ function CalendarContent() {
 
   const handlePostClick = (post: Post) => {
     console.log('Post clicked:', post);
-    // TODO: Open post editor modal
   };
 
   const handleTabKeyDown = (event: React.KeyboardEvent) => {
@@ -89,14 +89,14 @@ function CalendarContent() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Calendário</h1>
             <p className="text-muted-foreground">Gerencie seus posts agendados</p>
           </div>
         </div>
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
             <p className="mt-4 text-muted-foreground">Carregando posts...</p>
@@ -108,15 +108,15 @@ function CalendarContent() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Calendário</h1>
             <p className="text-muted-foreground">Gerencie seus posts agendados</p>
           </div>
         </div>
-        <Card>
-          <CardContent className="py-12 text-center text-red-500">
+        <Card variant="default">
+          <CardContent className="py-12 text-center text-destructive">
             <p>Erro ao carregar posts: {error.message}</p>
             <Button variant="outline" onClick={() => refetch()} className="mt-4">
               Tentar novamente
@@ -128,7 +128,7 @@ function CalendarContent() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -189,10 +189,10 @@ function CalendarContent() {
           <Button variant="outline" size="sm" onClick={nextMonth} aria-label="Próximo mês">
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Button>
-          <span className="px-4 text-sm font-medium">{monthName}</span>
+          <span className="px-4 text-sm font-medium text-foreground">{monthName}</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex gap-1 bg-muted p-1 rounded-lg" role="tablist" onKeyDown={handleTabKeyDown}>
+          <div className="flex gap-1 rounded-lg bg-[hsl(var(--muted))] p-1" role="tablist" onKeyDown={handleTabKeyDown}>
             {(['month', 'week', 'list'] as const).map((v, index) => (
               <button
                 key={v}
@@ -204,7 +204,7 @@ function CalendarContent() {
                 onClick={() => setView(v)}
                 onFocus={() => setView(v)}
                 className={cn(
-                  'px-3 py-1.5 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  'px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2',
                   view === v
                     ? 'bg-background text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -224,7 +224,7 @@ function CalendarContent() {
       </div>
 
       {/* Calendar Views */}
-      <Card>
+      <Card variant="default">
         <CardContent className="pt-0">
           <div role="tabpanel" id="calendar-panel-month" aria-labelledby="calendar-tab-month" hidden={view !== 'month'}>
             <CalendarGrid
@@ -250,36 +250,29 @@ function CalendarContent() {
       </Card>
 
       {/* Legend */}
-      <Card>
+      <Card variant="default">
         <CardContent className="pt-6">
           <div className="flex flex-wrap gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-primary/20" />
-              <span>Feed</span>
+              <Badge variant="info" className="bg-primary/10 text-primary">Feed</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-purple/20" />
-              <span>Stories</span>
+              <Badge variant="info" className="bg-purple/10 text-purple">Stories</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-orange/20" />
-              <span>Reels</span>
+              <Badge variant="info" className="bg-orange/10 text-orange">Reels</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-green/20" />
-              <span>WhatsApp</span>
+              <Badge variant="info" className="bg-green/10 text-green">WhatsApp</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded border border-dashed" />
-              <span>Rascunho</span>
+              <Badge variant="outline" className="border-dashed">Rascunho</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-green/20" />
-              <span>Aprovado</span>
+              <Badge variant="success">Aprovado</Badge>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-blue/20" />
-              <span>Publicado</span>
+              <Badge variant="info">Publicado</Badge>
             </div>
           </div>
         </CardContent>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw, Home, Bug, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -133,6 +133,3 @@ export default function GlobalError({ error, reset }: GlobalErrorPageProps) {
     </html>
   );
 }
-
-// Need to import useState
-import { useState } from 'react';

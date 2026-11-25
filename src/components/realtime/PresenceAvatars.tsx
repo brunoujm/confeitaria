@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { UserPresence } from '@/hooks/useRealtime';
+import type { UserPresence } from '@/hooks/useRealtime';
 
 interface PresenceAvatarsProps {
   users: UserPresence[];

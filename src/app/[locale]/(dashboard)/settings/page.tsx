@@ -186,12 +186,12 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
           <p className="text-muted-foreground">Gerencie sua conta e preferências</p>
         </div>
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
             <p className="mt-4 text-muted-foreground">Carregando configurações...</p>
@@ -202,7 +202,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl animate-fade-in">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
@@ -220,8 +220,8 @@ export default function SettingsPage() {
         </TabsList>
 
         {/* Profile Tab */}
-        <TabsContent value="profile" className="pt-6">
-          <Card>
+        <TabsContent value="profile" className="pt-6 animate-fade-in">
+          <Card variant="default">
             <CardHeader>
               <CardTitle>Informações do Perfil</CardTitle>
             </CardHeader>
@@ -236,7 +236,7 @@ export default function SettingsPage() {
                         <User className="h-12 w-12 text-primary" />
                       )}
                     </div>
-                    <Button variant="outline" size="sm" className="absolute bottom-0 right-0">
+                    <Button variant="outline" size="sm" className="absolute bottom-0 right-0" disabled>
                       Alterar foto
                     </Button>
                   </div>
@@ -280,8 +280,8 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Notifications Tab */}
-        <TabsContent value="notifications" className="pt-6">
-          <Card>
+        <TabsContent value="notifications" className="pt-6 animate-fade-in">
+          <Card variant="default">
             <CardHeader>
               <CardTitle>Preferências de Notificação</CardTitle>
             </CardHeader>
@@ -322,8 +322,8 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Appearance Tab */}
-        <TabsContent value="appearance" className="pt-6">
-          <Card>
+        <TabsContent value="appearance" className="pt-6 animate-fade-in">
+          <Card variant="default">
             <CardHeader>
               <CardTitle>Aparência</CardTitle>
             </CardHeader>
@@ -368,8 +368,8 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Security Tab */}
-        <TabsContent value="security" className="pt-6">
-          <Card>
+        <TabsContent value="security" className="pt-6 animate-fade-in">
+          <Card variant="default">
             <CardHeader>
               <CardTitle>Segurança</CardTitle>
             </CardHeader>
@@ -422,22 +422,22 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Danger Zone Tab */}
-        <TabsContent value="danger" className="pt-6">
-          <Card className="border-red-200 dark:border-red-900/30">
+        <TabsContent value="danger" className="pt-6 animate-fade-in">
+          <Card variant="default" className="border-destructive/20 dark:border-destructive/30">
             <CardHeader>
-              <CardTitle className="text-red-600 dark:text-red-400 flex items-center gap-2">
+              <CardTitle className="text-destructive flex items-center gap-2">
                 <Delete className="h-5 w-5" />
                 Zona de Perigo
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-lg">
-                <h4 className="font-medium text-red-800 dark:text-red-200 mb-2">Excluir conta permanentemente</h4>
-                <p className="text-red-700 dark:text-red-300 text-sm mb-4">
+              <div className="p-4 bg-destructive/10 dark:bg-destructive/20 border border-destructive/20 rounded-lg">
+                <h4 className="font-medium text-destructive mb-2">Excluir conta permanentemente</h4>
+                <p className="text-destructive/80 text-sm mb-4">
                   Esta ação é irreversível. Todos os seus dados (posts, templates, mídia, configurações) serão permanentemente excluídos.
                 </p>
                 <div className="space-y-2">
-                  <Label htmlFor="deleteConfirm">Digite &quot;EXCLUIR&quot; para confirmar</Label>
+                  <Label htmlFor="deleteConfirm">Digite "EXCLUIR" para confirmar</Label>
                   <Input
                     id="deleteConfirm"
                     value={deleteConfirmText}
@@ -452,7 +452,7 @@ export default function SettingsPage() {
                 variant="destructive"
                 onClick={async () => {
                   if (deleteConfirmText !== 'EXCLUIR') {
-                    alert('Digite &quot;EXCLUIR&quot; para confirmar');
+                    alert('Digite "EXCLUIR" para confirmar');
                     return;
                   }
                   setSaving(true);

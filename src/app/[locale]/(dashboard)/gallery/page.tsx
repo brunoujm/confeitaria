@@ -30,6 +30,7 @@ import { Progress } from '@/components/ui/Progress';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/Dialog';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/Popover';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/Badge';
 
 interface MediaItem {
   id: string;
@@ -177,7 +178,7 @@ export default function GalleryPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -185,7 +186,7 @@ export default function GalleryPage() {
           <p className="text-muted-foreground">Gerencie suas imagens e vídeos</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button onClick={() => {}}>
+          <Button variant="outline">
             <Download className="h-4 w-4 mr-2" />
             Exportar Selecionados
           </Button>
@@ -221,7 +222,7 @@ export default function GalleryPage() {
               onChange={handleFileSelect}
               className="sr-only"
             />
-            <Button variant="outline" onClick={() => {}}>
+            <Button variant="outline">
               <Upload className="h-4 w-4 mr-2" />
               Upload
             </Button>
@@ -230,7 +231,7 @@ export default function GalleryPage() {
       </div>
 
       {/* Filters and Search */}
-      <Card>
+      <Card variant="default">
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
@@ -252,23 +253,43 @@ export default function GalleryPage() {
                 <SelectItem value="VIDEO">Vídeos</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={view === 'grid' ? 'primary' : 'outline'}
-                size="icon"
+            <div className="flex items-center gap-1 rounded-lg bg-[hsl(var(--muted))] p-1" role="tablist">
+              <button
+                role="tab"
+                aria-selected={view === 'grid'}
+                aria-controls="gallery-panel-grid"
+                id="gallery-tab-grid"
+                tabIndex={view === 'grid' ? 0 : -1}
                 onClick={() => setView('grid')}
+                onFocus={() => setView('grid')}
+                className={cn(
+                  'p-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2',
+                  view === 'grid'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
                 aria-label="Visualização em grade"
               >
                 <Grid className="h-4 w-4" aria-hidden="true" />
-              </Button>
-              <Button
-                variant={view === 'list' ? 'primary' : 'outline'}
-                size="icon"
+              </button>
+              <button
+                role="tab"
+                aria-selected={view === 'list'}
+                aria-controls="gallery-panel-list"
+                id="gallery-tab-list"
+                tabIndex={view === 'list' ? 0 : -1}
                 onClick={() => setView('list')}
+                onFocus={() => setView('list')}
+                className={cn(
+                  'p-2 rounded-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] focus-visible:ring-offset-2',
+                  view === 'list'
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
                 aria-label="Visualização em lista"
               >
                 <List className="h-4 w-4" aria-hidden="true" />
-              </Button>
+              </button>
             </div>
           </div>
         </CardContent>
@@ -276,7 +297,7 @@ export default function GalleryPage() {
 
       {/* Upload Progress */}
       {Object.keys(uploadProgress).length > 0 && (
-        <Card>
+        <Card variant="default">
           <CardContent className="pt-6">
             <div className="space-y-2">
               {Object.entries(uploadProgress).map(([id, progress]) => (
@@ -294,14 +315,14 @@ export default function GalleryPage() {
 
       {/* Media Grid/List */}
       {isLoading ? (
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
             <p className="mt-4 text-muted-foreground">Carregando mídia...</p>
           </CardContent>
         </Card>
       ) : filteredMedia.length === 0 ? (
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-muted-foreground">
@@ -325,10 +346,13 @@ export default function GalleryPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <Card variant="default">
           <CardContent className="pt-0">
             {view === 'grid' ? (
               <div
+                role="tabpanel"
+                id="gallery-panel-grid"
+                aria-labelledby="gallery-tab-grid"
                 className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 p-3"
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
@@ -337,7 +361,7 @@ export default function GalleryPage() {
                   <div
                     key={item.id}
                     className={cn(
-                      'relative group aspect-square rounded-lg overflow-hidden border transition-all',
+                      'relative group aspect-square rounded-lg overflow-hidden border border-[hsl(var(--border))] transition-all',
                       selectedMedia.has(item.id) && 'ring-2 ring-primary ring-offset-2',
                       isSelectMode ? 'cursor-pointer' : 'cursor-default'
                     )}
@@ -388,7 +412,12 @@ export default function GalleryPage() {
                 ))}
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div
+                role="tabpanel"
+                id="gallery-panel-list"
+                aria-labelledby="gallery-tab-list"
+                className="divide-y divide-[hsl(var(--border))]"
+              >
                 {filteredMedia.map((item) => (
                   <div
                     key={item.id}
@@ -404,7 +433,7 @@ export default function GalleryPage() {
                         'w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0',
                         selectedMedia.has(item.id)
                           ? 'bg-primary border-primary text-primary-foreground'
-                          : 'border-border'
+                          : 'border-[hsl(var(--border))]'
                       )}>
                         {selectedMedia.has(item.id) && <Check className="h-4 w-4" />}
                       </div>
@@ -426,7 +455,7 @@ export default function GalleryPage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{item.url.split('/').pop()?.split('.')[0] || 'Arquivo'}</p>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                        <span className="px-2 py-0.5 rounded bg-muted">{item.type}</span>
+                        <Badge variant="secondary" className="px-2 py-0.5 rounded">{item.type}</Badge>
                         <span>{formatFileSize(item.size)}</span>
                         {item.width && item.height && <span>{item.width}×{item.height}</span>}
                         {item.duration && <span>{formatDuration(item.duration)}</span>}
@@ -462,7 +491,7 @@ export default function GalleryPage() {
       {/* Selection Mode Indicator */}
       {selectedMedia.size > 0 && !isSelectMode && (
         <div className="fixed bottom-4 right-4 z-50 animate-slide-up">
-          <Card className="shadow-lg">
+          <Card variant="default" className="shadow-lg">
             <CardContent className="flex items-center gap-3 p-4">
               <span className="font-medium">{selectedMedia.size} item{selectedMedia.size > 1 ? 's' : ''} selecionado{selectedMedia.size > 1 ? 's' : ''}</span>
               <Button size="sm" onClick={() => setIsSelectMode(true)}>
@@ -478,7 +507,7 @@ export default function GalleryPage() {
 
       {isSelectMode && (
         <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 z-50 animate-slide-up">
-          <Card className="shadow-lg">
+          <Card variant="default" className="shadow-lg">
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-medium">{selectedMedia.size} selecionado{selectedMedia.size > 1 ? 's' : ''}</span>

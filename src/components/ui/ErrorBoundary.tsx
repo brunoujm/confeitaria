@@ -1,6 +1,7 @@
 'use client';
 
-import { Component, ErrorInfo, ReactNode, useEffect } from 'react';
+import type { ErrorInfo, ReactNode} from 'react';
+import { Component, useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -200,6 +201,3 @@ export function useErrorHandler() {
 
   return { error, isError, handleError, clearError };
 }
-
-// Need to import useState
-import { useState } from 'react';

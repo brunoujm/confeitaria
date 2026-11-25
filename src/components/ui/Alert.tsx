@@ -1,71 +1,58 @@
 'use client';
 
 import * as React from 'react';
-import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/Button';
+import { X } from 'lucide-react';
 
-interface AlertProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'destructive' | 'success';
-  onClose?: () => void;
-}
+const Alert = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & { variant?: 'default' | 'destructive' | 'success' | 'warning' | 'info' }
+>(({ className, variant = 'default', ...props }, ref) => {
+  const variants = {
+    default: 'border-[hsl(var(--border))] bg-[hsl(var(--muted))] text-foreground',
+    destructive: 'border-[hsl(var(--destructive-border))] bg-[hsl(var(--destructive-light))] text-[hsl(var(--destructive))] dark:border-[hsl(var(--destructive-border))] dark:bg-[hsl(var(--destructive-light))] dark:text-[hsl(var(--destructive-light))]',
+    success: 'border-[hsl(var(--success-border))] bg-[hsl(var(--success-light))] text-[hsl(var(--success))] dark:border-[hsl(var(--success-border))] dark:bg-[hsl(var(--success-light))] dark:text-[hsl(var(--success-light))]',
+    warning: 'border-[hsl(var(--warning-border))] bg-[hsl(var(--warning-light))] text-[hsl(var(--warning))] dark:border-[hsl(var(--warning-border))] dark:bg-[hsl(var(--warning-light))] dark:text-[hsl(var(--warning-light))]',
+    info: 'border-[hsl(var(--info-border))] bg-[hsl(var(--info-light))] text-[hsl(var(--info))] dark:border-[hsl(var(--info-border))] dark:bg-[hsl(var(--info-light))] dark:text-[hsl(var(--info-light))]',
+  };
 
-export function Alert({ className, variant = 'default', onClose, children, ...props }: AlertProps) {
   return (
     <div
+      ref={ref}
       role="alert"
       className={cn(
-        'relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground',
-        {
-          'border-border bg-background': variant === 'default',
-          'border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200':
-            variant === 'destructive',
-          'border-green-200 dark:border-green-900/30 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200':
-            variant === 'success',
-        },
+        'relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px]',
+        variants[variant],
         className
       )}
       {...props}
-    >
-      {children}
-      {onClose && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className={cn('absolute right-4 top-4 text-foreground/50 hover:text-foreground')}
-          onClick={onClose}
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Fechar</span>
-        </Button>
-      )}
-    </div>
+    />
   );
-}
+});
+Alert.displayName = 'Alert';
 
-interface AlertTitleProps extends React.HTMLAttributes<HTMLHeadingElement> {}
+const AlertTitle = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <h5
+    ref={ref}
+    className={cn('mb-1 font-medium leading-none tracking-tight', className)}
+    {...props}
+  />
+));
+AlertTitle.displayName = 'AlertTitle';
 
-export function AlertTitle({ className, ...props }: AlertTitleProps) {
-  return (
-    <h5 className={cn('mb-1 font-medium leading-none tracking-tight', className)} {...props} />
-  );
-}
+const AlertDescription = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn('text-sm [&_p]:leading-relaxed', className)}
+    {...props}
+  />
+));
+AlertDescription.displayName = 'AlertDescription';
 
-interface AlertDescriptionProps extends React.HTMLAttributes<HTMLDivElement> {}
-
-export function AlertDescription({ className, ...props }: AlertDescriptionProps) {
-  return (
-    <div className={cn('text-sm [&_p]:leading-relaxed', className)} {...props} />
-  );
-}
-
-interface AlertActionProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
-
-export function AlertAction({ children, ...props }: AlertActionProps) {
-  return (
-    <Button variant="link" className="mt-4 text-sm underline-offset-4 hover:underline" {...props}>
-      {children}
-    </Button>
-  );
-}
+export { Alert, AlertTitle, AlertDescription };

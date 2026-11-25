@@ -34,10 +34,10 @@ interface Notification {
 }
 
 const TYPE_LABELS: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  POST_APPROVED: { label: 'Post Aprovado', icon: <Check className="h-3 w-3" />, color: 'bg-green/10 text-green' },
-  POST_PUBLISHED: { label: 'Post Publicado', icon: <MessageSquare className="h-3 w-3" />, color: 'bg-blue/10 text-blue' },
-  POST_COMMENT: { label: 'Comentário', icon: <MessageSquare className="h-3 w-3" />, color: 'bg-purple/10 text-purple' },
-  MENTION: { label: 'Menção', icon: <AlertTriangle className="h-3 w-3" />, color: 'bg-orange/10 text-orange' },
+  POST_APPROVED: { label: 'Post Aprovado', icon: <Check className="h-3 w-3" />, color: 'bg-success/10 text-success' },
+  POST_PUBLISHED: { label: 'Post Publicado', icon: <MessageSquare className="h-3 w-3" />, color: 'bg-primary/10 text-primary' },
+  POST_COMMENT: { label: 'Comentário', icon: <MessageSquare className="h-3 w-3" />, color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  MENTION: { label: 'Menção', icon: <AlertTriangle className="h-3 w-3" />, color: 'bg-warning/10 text-warning' },
   SYSTEM: { label: 'Sistema', icon: <Bell className="h-3 w-3" />, color: 'bg-muted text-muted-foreground' },
 };
 
@@ -134,7 +134,7 @@ export default function NotificationsPage() {
   const filteredNotifications = notifications;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -155,7 +155,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Filters */}
-      <Card>
+      <Card variant="default">
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -172,7 +172,7 @@ export default function NotificationsPage() {
                 id="unread-only"
                 checked={showOnlyUnread}
                 onChange={(e) => setShowOnlyUnread(e.target.checked)}
-                className="rounded border-input"
+                className="rounded border-[hsl(var(--input))]"
               />
               <Label htmlFor="unread-only" className="cursor-pointer mb-0">
                 Apenas não lidas
@@ -184,14 +184,14 @@ export default function NotificationsPage() {
 
       {/* Notifications List */}
       {isLoading ? (
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
             <p className="mt-4 text-muted-foreground">Carregando notificações...</p>
           </CardContent>
         </Card>
       ) : filteredNotifications.length === 0 ? (
-        <Card>
+        <Card variant="default">
           <CardContent className="py-12 text-center">
             <BellOff className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-muted-foreground">
@@ -209,6 +209,7 @@ export default function NotificationsPage() {
             return (
               <Card
                 key={notification.id}
+                variant="default"
                 className={cn(
                   'transition-colors',
                   !notification.read && 'bg-primary/5 border-primary/20'
@@ -252,7 +253,7 @@ export default function NotificationsPage() {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDelete(notification.id)}
-                            className="text-muted-foreground hover:text-red-500"
+                            className="text-muted-foreground hover:text-destructive"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

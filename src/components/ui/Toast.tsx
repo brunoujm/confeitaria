@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, createContext, useContext, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { useState, useCallback, createContext, useContext } from 'react';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 import { Button } from './Button';

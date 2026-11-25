@@ -25,12 +25,13 @@ import { usePosts, useDeletePost } from '@/hooks/usePosts';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ClientOnly } from '@/components/ClientOnly';
+import { cn } from '@/lib/utils';
 
 const statusConfig = {
-  DRAFT: { label: 'Rascunho', className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
-  APPROVED: { label: 'Aprovado', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' },
-  PUBLISHED: { label: 'Publicado', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' },
-  ARCHIVED: { label: 'Arquivado', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' },
+  DRAFT: { label: 'Rascunho', variant: 'outline' as const },
+  APPROVED: { label: 'Aprovado', variant: 'success' as const },
+  PUBLISHED: { label: 'Publicado', variant: 'info' as const },
+  ARCHIVED: { label: 'Arquivado', variant: 'secondary' as const },
 } as const;
 
 const typeConfig = {
@@ -46,7 +47,7 @@ function PostRow({ post, onDelete }: { post: any; onDelete: (id: string) => void
   const type = typeConfig[post.type as keyof typeof typeConfig];
 
   return (
-    <tr className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+    <tr className="border-b border-[hsl(var(--border))/0.5] hover:bg-[hsl(var(--muted))/0.5] transition-colors">
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           {post.media?.[0]?.url && (
@@ -60,14 +61,14 @@ function PostRow({ post, onDelete }: { post: any; onDelete: (id: string) => void
           )}
           <div>
             <p className="font-medium text-sm">{post.title}</p>
-            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+            <p className="text-xs text-muted-foreground truncate max-w-[200px] line-clamp-2">
               {post.caption || 'Sem legenda'}
             </p>
           </div>
         </div>
       </td>
       <td className="px-4 py-3 hidden md:table-cell">
-        <Badge variant="outline" className={status.className}>
+        <Badge variant={status.variant}>
           {status.label}
         </Badge>
       </td>
@@ -129,7 +130,7 @@ function PostRow({ post, onDelete }: { post: any; onDelete: (id: string) => void
 
 function PostSkeleton() {
   return (
-    <tr className="border-b border-border/50">
+    <tr className="border-b border-[hsl(var(--border))/0.5]">
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
           <Skeleton className="w-12 h-12 rounded-lg" />
@@ -192,7 +193,7 @@ function PostsContent() {
   const totalPages = data?.pagination?.totalPages || 1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -208,7 +209,7 @@ function PostsContent() {
       </div>
 
       {/* Search and Filters */}
-      <Card>
+      <Card variant="default">
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1 max-w-md">
@@ -246,7 +247,7 @@ function PostsContent() {
                 <SelectContent>
                   {Object.entries(statusConfig).map(([key, config]) => (
                     <SelectItem key={key} value={key}>
-                      <Badge variant="outline" className={config.className}>
+                      <Badge variant={config.variant}>
                         {config.label}
                       </Badge>
                     </SelectItem>
@@ -267,12 +268,12 @@ function PostsContent() {
       </Card>
 
       {/* Posts Table */}
-      <Card>
+      <Card variant="default">
         {isLoading ? (
           <div className="p-6">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-border/50">
+                <tr className="border-b border-[hsl(var(--border))/0.5]">
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Post</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Tipo</th>
@@ -298,7 +299,7 @@ function PostsContent() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-border/50">
+                  <tr className="border-b border-[hsl(var(--border))/0.5]">
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Post</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hidden md:table-cell">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hidden lg:table-cell">Tipo</th>
@@ -329,7 +330,7 @@ function PostsContent() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <CardFooter className="flex items-center justify-between border-t border-border/50">
+              <CardFooter className="flex items-center justify-between border-t border-[hsl(var(--border))/0.5]">
                 <p className="text-sm text-muted-foreground">
                   Página {page} de {totalPages} — {data?.pagination?.total} posts
                 </p>

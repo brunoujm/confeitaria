@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { connectSocket, getSocket } from '@/lib/socket';
+import type { getSocket } from '@/lib/socket';
+import { connectSocket } from '@/lib/socket';
 
 export interface UserPresence {
   id: string;
