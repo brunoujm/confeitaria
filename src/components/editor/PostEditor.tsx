@@ -388,7 +388,7 @@ export function PostEditor({ initialData, isEditing = false }: PostEditorProps) 
                   <DialogHeader>
                     <DialogTitle>Excluir post</DialogTitle>
                     <DialogDescription>
-                      Esta ação moverá o post para "Arquivado". Tem certeza?
+                      Esta ação moverá o post para &quot;Arquivado&quot;. Tem certeza?
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
