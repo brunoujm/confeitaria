@@ -66,3 +66,4 @@ logs/
 
 # Prints/screenshots (never versioned)
 prints/
+.vercel
