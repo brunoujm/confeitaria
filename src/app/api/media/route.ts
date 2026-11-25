@@ -1,14 +1,26 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 import { fileTypeFromBuffer } from 'file-type';
 import { validateVideoFile } from '@/lib/video-metadata';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+/**
+ * Cria o cliente Supabase de forma lazy (sob demanda).
+ * Isso evita erros durante o build quando as variáveis de ambiente não estão disponíveis.
+ */
+function getSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      'Configuração do Supabase ausente. Verifique as variáveis de ambiente: NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY'
+    );
+  }
+
+  return createClient(url, key);
+}
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
@@ -232,6 +244,7 @@ export async function POST(request: NextRequest) {
     const filePath = `${session.user.id}/${fileName}`;
 
     // Upload to Supabase Storage (using buffer already validated)
+    const supabase = getSupabaseClient();
     const uploadResult = await supabase.storage
       .from('media')
       .upload(filePath, buffer, {
@@ -279,6 +292,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado a excluir este arquivo' }, { status: 403 });
     }
 
+    const supabase = getSupabaseClient();
     const { error } = await supabase.storage.from('media').remove([path]);
 
     if (error) {
