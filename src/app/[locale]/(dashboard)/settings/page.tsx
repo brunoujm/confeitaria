@@ -437,7 +437,7 @@ export default function SettingsPage() {
                   Esta ação é irreversível. Todos os seus dados (posts, templates, mídia, configurações) serão permanentemente excluídos.
                 </p>
                 <div className="space-y-2">
-                  <Label htmlFor="deleteConfirm">Digite "EXCLUIR" para confirmar</Label>
+                  <Label htmlFor="deleteConfirm">Digite &quot;EXCLUIR&quot; para confirmar</Label>
                   <Input
                     id="deleteConfirm"
                     value={deleteConfirmText}
@@ -452,7 +452,7 @@ export default function SettingsPage() {
                 variant="destructive"
                 onClick={async () => {
                   if (deleteConfirmText !== 'EXCLUIR') {
-                    alert('Digite "EXCLUIR" para confirmar');
+                    alert('Digite &quot;EXCLUIR&quot; para confirmar');
                     return;
                   }
                   setSaving(true);
