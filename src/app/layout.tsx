@@ -1,10 +1,9 @@
 import "./globals.css";
-import { getValidatedEnv } from "@/lib/env";
 import { Providers } from "@/components/providers";
 
-// Validação das variáveis de ambiente no startup da aplicação
-// Executa apenas uma vez no servidor (build/startup)
-getValidatedEnv();
+// Environment validation is now done at runtime in server components
+// to avoid build-time failures when Vercel build env vars are incomplete
+// See src/app/[locale]/layout.tsx for runtime validation
 
 export const metadata = {
   title: "Confeitaria Content Manager",
