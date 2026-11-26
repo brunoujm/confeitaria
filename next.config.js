@@ -158,6 +158,7 @@ const withPWA = require('next-pwa')({
 const { withSentryConfig } = require('@sentry/nextjs');
 
 const nextConfig = {
+  output: 'standalone',
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -175,9 +176,13 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '50mb',
     },
-  },
-  env: {
-    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    serverComponentsExternalPackages: [
+      '@prisma/composer',
+      '@prisma/composer-prisma-cloud',
+      '@prisma/orm-postgres',
+      '@prisma/orm-postgres/runtime',
+      'pg',
+    ],
   },
   async headers() {
     return [

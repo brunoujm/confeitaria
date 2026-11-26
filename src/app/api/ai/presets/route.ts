@@ -39,7 +39,7 @@ export async function GET(_request: NextRequest) {
     });
 
     // Parse variables JSON string to array
-    const parsedPresets = presets.map(preset => ({
+    const parsedPresets = presets.map((preset: any) => ({
       ...preset,
       variables: typeof preset.variables === 'string' ? JSON.parse(preset.variables) : preset.variables,
     }));

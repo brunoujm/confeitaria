@@ -1,10 +1,13 @@
-import { PrismaClient } from '@prisma/client';
+import postgres from '@prisma/orm-postgres/runtime';
+import { contractFromJson } from '@prisma/orm-postgres/static';
+import type { Contract } from '../src/prisma/contract';
+import contractJson from '../src/prisma/contract.json';
 import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env' });
 
-const prisma = new PrismaClient();
+const prisma = postgres({ contract: contractFromJson<Contract>(contractJson), url: process.env.DATABASE_URL! }) as any;
 
 async function main() {
   console.log('🌱 Starting database seed...');
