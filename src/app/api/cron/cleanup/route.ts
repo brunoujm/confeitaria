@@ -43,9 +43,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Collect media paths for Supabase deletion (extract path from URL)
-    const mediaPaths = oldArchivedPosts.flatMap(post =>
+    const mediaPaths = oldArchivedPosts.flatMap((post: any) =>
       post.media
-        .map(m => {
+        .map((m: any) => {
           // Extract path from Supabase URL: https://xxx.supabase.co/storage/v1/object/public/media/user-id/filename.ext
           try {
             const url = new URL(m.url);
@@ -55,12 +55,12 @@ export async function GET(request: NextRequest) {
             return null;
           }
         })
-        .filter((p): p is string => p !== null)
+        .filter((p: any): p is string => p !== null)
     );
 
     // Delete posts atomically using transaction to prevent race conditions
     // Using the same filter criteria directly in deleteMany avoids the TOCTOU race
-    const deletedPosts = await prisma.$transaction(async (tx) => {
+    const deletedPosts = await prisma.$transaction(async (tx: any) => {
       // Re-verify posts still match criteria at deletion time
       const postsToDelete = await tx.post.findMany({
         where: {
@@ -79,12 +79,12 @@ export async function GET(request: NextRequest) {
       const result = await tx.post.deleteMany({
         where: {
           id: {
-            in: postsToDelete.map(p => p.id),
+            in: postsToDelete.map((p: any) => p.id),
           },
         },
       });
 
-      return { count: result.count, ids: postsToDelete.map(p => p.id) };
+      return { count: result.count, ids: postsToDelete.map((p: any) => p.id) };
     });
 
     // Optionally delete from Supabase Storage
