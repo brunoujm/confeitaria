@@ -118,10 +118,13 @@ export default function AISettingsPage() {
   });
   const [newVariable, setNewVariable] = useState('');
 
-  const fetchConfig = async () => {
+  const fetchConfig = async (): Promise<void> => {
     try {
       // Try to fetch from API, fallback to defaults
-      const response = await fetch('/api/ai-config');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const response = await fetch('/api/ai-config', { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (response.ok) {
         const data = await response.json();
         setConfig(data.config || config);
@@ -131,9 +134,12 @@ export default function AISettingsPage() {
     }
   };
 
-  const fetchPresets = async () => {
+  const fetchPresets = async (): Promise<void> => {
     try {
-      const response = await fetch('/api/ai/presets');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const response = await fetch('/api/ai/presets', { signal: controller.signal });
+      clearTimeout(timeoutId);
       if (response.ok) {
         const data = await response.json();
         setPresets(data.presets || []);
@@ -144,11 +150,17 @@ export default function AISettingsPage() {
   };
 
   useEffect(() => {
+    let mounted = true;
     const loadData = async () => {
       await Promise.all([fetchConfig(), fetchPresets()]);
-      setIsLoading(false);
+      if (mounted) {
+        setIsLoading(false);
+      }
     };
     loadData();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const clearMessage = () => setMessage(null);

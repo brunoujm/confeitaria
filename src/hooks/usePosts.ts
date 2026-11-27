@@ -7,8 +7,11 @@ import { type Post, type PostFiltersInput } from '@/lib/validations/post';
 async function fetchPosts(filters: PostFiltersInput) {
   const params = new URLSearchParams();
   if (filters.view) params.set('view', filters.view);
+  // Support both legacy (start/end) and new (scheduledFrom/scheduledTo) params
   if (filters.start) params.set('start', filters.start);
   if (filters.end) params.set('end', filters.end);
+  if (filters.scheduledFrom) params.set('scheduledFrom', filters.scheduledFrom);
+  if (filters.scheduledTo) params.set('scheduledTo', filters.scheduledTo);
   if (filters.type?.length) params.set('type', filters.type.join(','));
   if (filters.status?.length) params.set('status', filters.status.join(','));
   if (filters.authorId) params.set('authorId', filters.authorId);
@@ -67,6 +70,8 @@ export function usePosts(filters: PostFiltersInput = { page: 1, limit: 50 }) {
     filters.view,
     filters.start,
     filters.end,
+    filters.scheduledFrom,
+    filters.scheduledTo,
     filters.type?.join(','),
     filters.status?.join(','),
     filters.authorId,
@@ -76,6 +81,8 @@ export function usePosts(filters: PostFiltersInput = { page: 1, limit: 50 }) {
     filters.view,
     filters.start,
     filters.end,
+    filters.scheduledFrom,
+    filters.scheduledTo,
     filters.type?.join(','),
     filters.status?.join(','),
     filters.authorId,
@@ -89,6 +96,8 @@ export function usePosts(filters: PostFiltersInput = { page: 1, limit: 50 }) {
     view: filters.view,
     start: filters.start,
     end: filters.end,
+    scheduledFrom: filters.scheduledFrom,
+    scheduledTo: filters.scheduledTo,
     type: filters.type,
     status: filters.status,
     authorId: filters.authorId,
@@ -98,6 +107,8 @@ export function usePosts(filters: PostFiltersInput = { page: 1, limit: 50 }) {
     filters.view,
     filters.start,
     filters.end,
+    filters.scheduledFrom,
+    filters.scheduledTo,
     filters.type?.join(','),
     filters.status?.join(','),
     filters.authorId,

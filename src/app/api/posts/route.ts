@@ -16,8 +16,10 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const filters = postFiltersSchema.parse({
       view: searchParams.get('view') || undefined,
-      start: searchParams.get('start') || undefined,
-      end: searchParams.get('end') || undefined,
+      start: searchParams.get('start') || searchParams.get('scheduledFrom') || undefined,
+      end: searchParams.get('end') || searchParams.get('scheduledTo') || undefined,
+      scheduledFrom: searchParams.get('scheduledFrom') || undefined,
+      scheduledTo: searchParams.get('scheduledTo') || undefined,
       type: searchParams.get('type')?.split(',') || undefined,
       status: searchParams.get('status')?.split(',') || undefined,
       authorId: searchParams.get('authorId') || undefined,
@@ -33,10 +35,14 @@ export async function GET(req: NextRequest) {
       where.authorId = session.user.id;
     }
 
-    if (filters.start || filters.end) {
+    // Support both start/end and scheduledFrom/scheduledTo for backward compatibility
+    const scheduledFrom = filters.scheduledFrom || filters.start;
+    const scheduledTo = filters.scheduledTo || filters.end;
+
+    if (scheduledFrom || scheduledTo) {
       const scheduledAtFilter: Record<string, Date> = {};
-      if (filters.start) scheduledAtFilter.gte = new Date(filters.start);
-      if (filters.end) scheduledAtFilter.lte = new Date(filters.end);
+      if (scheduledFrom) scheduledAtFilter.gte = new Date(scheduledFrom);
+      if (scheduledTo) scheduledAtFilter.lte = new Date(scheduledTo);
       where.scheduledAt = scheduledAtFilter;
     }
 

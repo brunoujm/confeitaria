@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { getSocket } from '@/lib/socket';
-import { connectSocket } from '@/lib/socket';
+import type { Socket } from 'socket.io-client';
+import { connectSocket, disconnectSocket, getSocket, calculateReconnectionDelay, DEFAULT_RECONNECTION_CONFIG } from '@/lib/socket';
 
 export interface UserPresence {
   id: string;
@@ -16,6 +16,8 @@ export interface CursorPosition {
   y: number;
 }
 
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'failed';
+
 interface UseRealtimeOptions {
   postId: string;
   userId: string;
@@ -24,6 +26,12 @@ interface UseRealtimeOptions {
   onUserJoin?: (user: UserPresence) => void;
   onUserLeave?: (userId: string) => void;
   onCursorUpdate?: (cursor: CursorPosition) => void;
+}
+
+interface ReconnectionState {
+  attempt: number;
+  timeoutId: ReturnType<typeof setTimeout> | null;
+  isReconnecting: boolean;
 }
 
 export function useRealtime({
@@ -35,12 +43,26 @@ export function useRealtime({
   onUserLeave,
   onCursorUpdate,
 }: UseRealtimeOptions) {
-  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [users, setUsers] = useState<UserPresence[]>([]);
   const [cursors, setCursors] = useState<Map<string, CursorPosition>>(new Map());
-  const socketRef = useRef<ReturnType<typeof getSocket> | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const userColorRef = useRef<string>('#E85D75');
   const handlersRef = useRef<Record<string, (...args: unknown[]) => void>>({});
+  const reconnectionRef = useRef<ReconnectionState>({
+    attempt: 0,
+    timeoutId: null,
+    isReconnecting: false,
+  });
+  const isMountedRef = useRef(true);
+  const postIdRef = useRef(postId);
+  const userIdRef = useRef(userId);
+
+  // Keep refs updated without triggering re-renders
+  useEffect(() => {
+    postIdRef.current = postId;
+    userIdRef.current = userId;
+  }, [postId, userId]);
 
   // Generate consistent color for user
   useEffect(() => {
@@ -56,25 +78,100 @@ export function useRealtime({
     userColorRef.current = colors[Math.abs(hash) % colors.length];
   }, [userId]);
 
+  const clearReconnectionTimeout = useCallback(() => {
+    if (reconnectionRef.current.timeoutId) {
+      clearTimeout(reconnectionRef.current.timeoutId);
+      reconnectionRef.current.timeoutId = null;
+    }
+  }, []);
+
+  const scheduleReconnection = useCallback((socket: Socket) => {
+    const { attempt, isReconnecting } = reconnectionRef.current;
+
+    if (!isMountedRef.current) return;
+    if (attempt >= DEFAULT_RECONNECTION_CONFIG.maxRetries) {
+      setConnectionStatus('failed');
+      reconnectionRef.current.isReconnecting = false;
+      return;
+    }
+    if (isReconnecting) return;
+
+    reconnectionRef.current.isReconnecting = true;
+    setConnectionStatus('reconnecting');
+
+    const delay = calculateReconnectionDelay(attempt, DEFAULT_RECONNECTION_CONFIG);
+
+    reconnectionRef.current.timeoutId = setTimeout(() => {
+      if (!isMountedRef.current) return;
+
+      reconnectionRef.current.attempt += 1;
+      reconnectionRef.current.isReconnecting = false;
+
+      if (!socket.connected && isMountedRef.current) {
+        socket.connect();
+      }
+    }, delay);
+  }, []);
+
+  const resetReconnection = useCallback(() => {
+    reconnectionRef.current.attempt = 0;
+    reconnectionRef.current.isReconnecting = false;
+    clearReconnectionTimeout();
+  }, [clearReconnectionTimeout]);
+
   useEffect(() => {
     if (!postId) return;
+
+    isMountedRef.current = true;
+    resetReconnection();
 
     const socket = connectSocket();
     socketRef.current = socket;
 
-    // Define all handlers with stable references (type inferred, cast for storage)
+    // Define all handlers with stable references
     const handlers = {
       connect: () => {
-        setIsConnected(true);
-        socket.emit('post:join', postId);
+        if (!isMountedRef.current) return;
+        resetReconnection();
+        setConnectionStatus('connected');
+        socket.emit('post:join', postIdRef.current);
       },
-      disconnect: () => {
-        setIsConnected(false);
+      connect_error: (error: Error) => {
+        if (!isMountedRef.current) return;
+        console.error('[Socket] Connection error:', error.message);
+        setConnectionStatus('reconnecting');
+        scheduleReconnection(socket);
+      },
+      disconnect: (reason: string) => {
+        if (!isMountedRef.current) return;
+        setConnectionStatus('disconnected');
+
+        // Only attempt reconnection for non-intentional disconnects
+        if (reason !== 'io client disconnect' && reason !== 'io server disconnect') {
+          scheduleReconnection(socket);
+        }
+      },
+      reconnect: (attemptNumber: number) => {
+        if (!isMountedRef.current) return;
+        resetReconnection();
+        setConnectionStatus('connected');
+        socket.emit('post:join', postIdRef.current);
+      },
+      reconnect_attempt: (attemptNumber: number) => {
+        if (!isMountedRef.current) return;
+        setConnectionStatus('reconnecting');
+      },
+      reconnect_failed: () => {
+        if (!isMountedRef.current) return;
+        setConnectionStatus('failed');
+        reconnectionRef.current.isReconnecting = false;
       },
       'room:users': (roomUsers: UserPresence[]) => {
+        if (!isMountedRef.current) return;
         setUsers(roomUsers.filter(u => u.id !== socket.id));
       },
       'room:cursors': (roomCursors: [string, CursorPosition][]) => {
+        if (!isMountedRef.current) return;
         const cursorMap = new Map(roomCursors);
         if (socket.id) {
           cursorMap.delete(socket.id);
@@ -82,22 +179,25 @@ export function useRealtime({
         setCursors(cursorMap);
       },
       'presence:join': (user: UserPresence) => {
+        if (!isMountedRef.current) return;
         setUsers(prev => {
           if (prev.some(u => u.id === user.id)) return prev;
           return [...prev, user];
         });
         onUserJoin?.(user);
       },
-      'presence:leave': (userId: string) => {
-        setUsers(prev => prev.filter(u => u.id !== userId));
+      'presence:leave': (leftUserId: string) => {
+        if (!isMountedRef.current) return;
+        setUsers(prev => prev.filter(u => u.id !== leftUserId));
         setCursors(prev => {
           const next = new Map(prev);
-          next.delete(userId);
+          next.delete(leftUserId);
           return next;
         });
-        onUserLeave?.(userId);
+        onUserLeave?.(leftUserId);
       },
       'cursor:update': (data: { userId: string; cursor: { x: number; y: number } }) => {
+        if (!isMountedRef.current) return;
         if (data.userId === socket.id) return;
         setCursors(prev => {
           const next = new Map(prev);
@@ -107,7 +207,8 @@ export function useRealtime({
         onCursorUpdate?.({ userId: data.userId, ...data.cursor });
       },
       'post:update': (data: { postId: string; updates: Record<string, unknown> }) => {
-        if (data.postId === postId) {
+        if (!isMountedRef.current) return;
+        if (data.postId === postIdRef.current) {
           onPostUpdate?.(data.updates);
         }
       },
@@ -121,46 +222,64 @@ export function useRealtime({
       socket.on(event, handler);
     });
 
+    // Initial connection
+    setConnectionStatus('connecting');
     socket.emit('post:join', postId);
 
-    // Cleanup function - properly remove all listeners
+    // Cleanup function - properly remove all listeners and timers
     return () => {
+      isMountedRef.current = false;
+      clearReconnectionTimeout();
+
       socket.emit('post:leave', postId);
       Object.entries(handlersRef.current).forEach(([event, handler]) => {
         socket.off(event, handler);
       });
       handlersRef.current = {};
     };
-  }, [postId, userId, onPostUpdate, onUserJoin, onUserLeave, onCursorUpdate]);
+  }, [postId, onPostUpdate, onUserJoin, onUserLeave, onCursorUpdate, scheduleReconnection, resetReconnection, clearReconnectionTimeout]);
 
   const sendCursorPosition = useCallback((x: number, y: number) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit('presence:update', {
-        postId,
-        userId,
+        postId: postIdRef.current,
+        userId: userIdRef.current,
         cursor: { x, y },
       });
     }
-  }, [postId, userId]);
+  }, []);
 
   const sendPostUpdate = useCallback((updates: Record<string, unknown>) => {
     if (socketRef.current?.connected) {
-      socketRef.current.emit('post:update', { postId, updates });
+      socketRef.current.emit('post:update', { postId: postIdRef.current, updates });
     }
-  }, [postId]);
+  }, []);
 
   const getUserColor = useCallback((targetUserId: string) => {
     const user = users.find(u => u.id === targetUserId);
     return user?.color || userColorRef.current;
   }, [users]);
 
+  const forceReconnect = useCallback(() => {
+    const socket = socketRef.current;
+    if (socket && isMountedRef.current) {
+      resetReconnection();
+      if (!socket.connected) {
+        setConnectionStatus('connecting');
+        socket.connect();
+      }
+    }
+  }, [resetReconnection]);
+
   return {
-    isConnected,
+    isConnected: connectionStatus === 'connected',
+    connectionStatus,
     users,
     cursors,
     sendCursorPosition,
     sendPostUpdate,
     getUserColor,
     myColor: userColorRef.current,
+    forceReconnect,
   };
 }

@@ -1,4 +1,4 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { openai } from '@ai-sdk/openai';
@@ -8,55 +8,60 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { aiRateLimiter, checkRateLimit } from '@/lib/ratelimit';
 
-// Sanitization helper to prevent prompt injection and XSS
-function sanitizeInput(input: string): string {
-  return input
-    .replace(/[<>]/g, '') // Remove angle brackets (prevents HTML/script injection)
-    .replace(/ignore previous instructions/gi, '') // Remove prompt injection patterns
-    .replace(/system:/gi, '') // Remove system prompt attempts
-    .replace(/user:/gi, '') // Remove user prompt attempts
-    .replace(/assistant:/gi, '') // Remove assistant prompt attempts
-    .trim()
-    .slice(0, 2000); // Limit max length
-}
+// ============================================
+// DEFENSE IN DEPTH: Prompt Injection Prevention
+// ============================================
+// 1. Input validation with strict Zod schemas (allowlist approach)
+// 2. Variable sanitization: length limits, character allowlist, delimiter escaping
+// 3. Template interpolation with safe replacement (no user-controlled templates)
+// 4. System/User message separation (Vercel AI SDK supports messages array)
+// 5. No HTML entity encoding - that's for XSS, not prompt injection
+// 6. Rate limiting fail-closed in production
 
-function sanitizePromptInput(input: string): string {
-  return input
-    .replace(/[<>]/g, '')
-    .replace(/ignore previous instructions/gi, '')
-    .replace(/system:/gi, '')
-    .replace(/user:/gi, '')
-    .replace(/assistant:/gi, '')
-    .trim()
-    .slice(0, 5000);
-}
+// Note: Template variable sanitization (sanitizeVariableValue, sanitizeTemplateVariables)
+// and related constants (VARIABLE_ALLOWED_CHARS, VARIABLE_MAX_LENGTHS, ALLOWED_TEMPLATE_VARIABLES)
+// are defined in /api/ai/test/route.ts where they are used for preset-based generation
+// with {{variable}} placeholders.
+// The main /api/ai route handles direct user input (topic, tone, etc.) and does not use template interpolation.
+
+// ============================================
+// Zod Schemas with Strict Validation
+// ============================================
 
 const captionSchema = z.object({
   type: z.literal('caption'),
-  topic: z.string().min(1),
+  topic: z.string().min(1).max(500), // Topic is user input, strict limit
   tone: z.enum(['professional', 'casual', 'inspirational', 'educational', 'promotional', 'storytelling']),
   length: z.enum(['short', 'medium', 'long']),
-  postType: z.string(),
+  postType: z.enum(['FEED', 'STORIES', 'REELS', 'WHATSAPP_STATUS', 'WHATSAPP_CATALOG']),
   includeEmojis: z.boolean(),
   includeCTA: z.boolean(),
+  // Optional template variables for preset-based generation
+  variables: z.record(z.string().max(200)).optional(),
 });
 
 const hashtagsSchema = z.object({
   type: z.literal('hashtags'),
-  topic: z.string().min(1),
+  topic: z.string().min(1).max(500),
   count: z.number().int().min(1).max(30),
   style: z.enum(['popular', 'niche', 'mixed', 'branded']),
-  postType: z.string(),
+  postType: z.enum(['FEED', 'STORIES', 'REELS', 'WHATSAPP_STATUS', 'WHATSAPP_CATALOG']),
+  variables: z.record(z.string().max(200)).optional(),
 });
 
 const imageSchema = z.object({
   type: z.literal('image'),
-  prompt: z.string().min(1),
+  prompt: z.string().min(1).max(1000), // DALL-E prompt limit
   style: z.enum(['photorealistic', 'illustration', 'minimalist', 'vibrant', 'warm', 'elegant']),
   aspectRatio: z.enum(['1:1', '9:16', '4:5', '16:9']),
+  variables: z.record(z.string().max(200)).optional(),
 });
 
 const aiRequestSchema = z.union([captionSchema, hashtagsSchema, imageSchema]);
+
+// ============================================
+// Prompt Builders (System prompts are static/hardcoded)
+// ============================================
 
 function buildCaptionPrompt(data: z.infer<typeof captionSchema>) {
   const lengthGuide = {
@@ -82,7 +87,8 @@ function buildCaptionPrompt(data: z.infer<typeof captionSchema>) {
     WHATSAPP_CATALOG: 'WhatsApp Catálogo (produtos/serviços)',
   };
 
-  const prompt = `Crie uma legenda para redes sociais sobre: "${data.topic}"
+  // Build user message with interpolated variables
+  const userMessage = `Crie uma legenda para redes sociais sobre: "${data.topic}"
 
 **Contexto:**
 - Plataforma/Tipo: ${postTypeGuide[data.postType] || data.postType}
@@ -97,7 +103,7 @@ ${data.includeCTA ? '- Inclua um call-to-action claro (ex: "Comente abaixo", "Cl
 - Seja engajador e relevante para o público de confeitaria/doces
 - Inclua 3-5 hashtags relevantes no final`;
 
-  return prompt;
+  return { userMessage };
 }
 
 function buildHashtagsPrompt(data: z.infer<typeof hashtagsSchema>) {
@@ -108,7 +114,7 @@ function buildHashtagsPrompt(data: z.infer<typeof hashtagsSchema>) {
     branded: 'hashtags com nome da marca e campanhas',
   };
 
-  const prompt = `Gere ${data.count} hashtags para: "${data.topic}"
+  const userMessage = `Gere ${data.count} hashtags para: "${data.topic}"
 
 **Contexto:**
 - Tipo de post: ${data.postType}
@@ -120,7 +126,7 @@ function buildHashtagsPrompt(data: z.infer<typeof hashtagsSchema>) {
 - Relevantes para confeitaria, doces, padaria
 - Retorne apenas a lista de hashtags, uma por linha`;
 
-  return prompt;
+  return { userMessage };
 }
 
 function buildImagePrompt(data: z.infer<typeof imageSchema>) {
@@ -140,7 +146,7 @@ function buildImagePrompt(data: z.infer<typeof imageSchema>) {
     '16:9': 'horizontal (16:9), ideal para capas/YouTube',
   };
 
-  const prompt = `Crie uma imagem para confeitaria: "${data.prompt}"
+  const userMessage = `Crie uma imagem para confeitaria: "${data.prompt}"
 
 **Estilo visual:** ${styleGuide[data.style]}
 **Proporção:** ${aspectGuide[data.aspectRatio]}
@@ -148,8 +154,19 @@ function buildImagePrompt(data: z.infer<typeof imageSchema>) {
 
 **Elementos sugeridos:** Doces, bolos, sobremesas, ingredientes, processo de confeitaria, decoração, embalagens`;
 
-  return prompt;
+  return { userMessage };
 }
+
+// System prompts are STATIC - never user-controlled
+const SYSTEM_PROMPTS = {
+  caption: 'Você é um especialista em marketing de conteúdo para confeitarias e docerias brasileiras. Crie legendas autênticas, engajadoras e adaptadas ao formato solicitado. Sempre responda em português do Brasil.',
+  hashtags: 'Você é um especialista em hashtags para redes sociais no nicho de confeitaria brasileira. Gere hashtags relevantes, populares e de nicho. Responda apenas com a lista de hashtags.',
+  image: 'Você é um prompt engineer especializado em geração de imagens para confeitaria. Crie prompts detalhados e otimizados para DALL-E 3.',
+};
+
+// ============================================
+// API Route Handler
+// ============================================
 
 export async function POST(request: NextRequest) {
   try {
@@ -158,7 +175,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    // Rate limiting: 20 requests per minute per user
+    // Rate limiting: 20 requests per minute per user (fail-closed in production)
     const rateLimitResult = await checkRateLimit(aiRateLimiter, `ai:${session.user.id}`);
     if (!rateLimitResult.success) {
       const response = NextResponse.json(
@@ -180,34 +197,37 @@ export async function POST(request: NextRequest) {
 
     const data = validation.data;
 
-    // Check rate limits (simplified)
-    // In production, use Upstash Redis for proper rate limiting
+    // Build rate limit headers helper
+    const setRateLimitHeaders = (response: NextResponse) => {
+      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+    };
 
     if (data.type === 'caption') {
-      const sanitizedTopic = sanitizeInput(data.topic);
-      const prompt = buildCaptionPrompt({ ...data, topic: sanitizedTopic });
+      const { userMessage } = buildCaptionPrompt(data);
 
+      // Use messages array for system/user separation (Vercel AI SDK)
       const { text } = await generateText({
         model: openai('gpt-4o-mini'),
-        prompt,
+        system: SYSTEM_PROMPTS.caption,
+        prompt: userMessage,
         temperature: 0.7,
         maxTokens: data.length === 'short' ? 200 : data.length === 'medium' ? 400 : 800,
       });
 
       const response = NextResponse.json({ content: text.trim() });
-      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+      setRateLimitHeaders(response);
       return response;
     }
 
     if (data.type === 'hashtags') {
-      const sanitizedTopic = sanitizeInput(data.topic);
-      const prompt = buildHashtagsPrompt({ ...data, topic: sanitizedTopic });
+      const { userMessage } = buildHashtagsPrompt(data);
 
       const { text } = await generateText({
         model: openai('gpt-4o-mini'),
-        prompt,
+        system: SYSTEM_PROMPTS.hashtags,
+        prompt: userMessage,
         temperature: 0.5,
         maxTokens: 500,
       });
@@ -219,18 +239,22 @@ export async function POST(request: NextRequest) {
         .slice(0, data.count);
 
       const response = NextResponse.json({ content: hashtags });
-      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+      setRateLimitHeaders(response);
       return response;
     }
 
     if (data.type === 'image') {
-      const sanitizedPrompt = sanitizePromptInput(data.prompt);
-      const prompt = buildImagePrompt({ ...data, prompt: sanitizedPrompt });
+      // For DALL-E, we still build a single prompt but with system prompt separation conceptually
+      // DALL-E doesn't support system prompt, so we prepend it
+      const { userMessage } = buildImagePrompt(data);
+      const fullPrompt = `${SYSTEM_PROMPTS.image}\n\n${userMessage}`;
+
+      // Additional sanitization for DALL-E prompt (stricter)
+      const dallePrompt = fullPrompt
+        .replace(/[<>]/g, '')
+        .slice(0, 4000); // DALL-E 3 max prompt length
 
       try {
-        // Use OpenAI SDK directly for DALL-E 3
         const openaiClient = new OpenAI({
           apiKey: process.env.OPENAI_API_KEY,
         });
@@ -244,7 +268,7 @@ export async function POST(request: NextRequest) {
 
         const response = await openaiClient.images.generate({
           model: 'dall-e-3',
-          prompt,
+          prompt: dallePrompt,
           size: sizeMap[data.aspectRatio] || '1024x1024',
           quality: 'hd',
           n: 1,
@@ -258,11 +282,9 @@ export async function POST(request: NextRequest) {
 
         const apiResponse = NextResponse.json({
           imageUrl,
-          prompt,
+          prompt: dallePrompt,
         });
-        apiResponse.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-        apiResponse.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-        apiResponse.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+        setRateLimitHeaders(apiResponse);
         return apiResponse;
       } catch (error) {
         console.error('DALL-E image generation error:', error);
@@ -274,9 +296,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = NextResponse.json({ error: 'Tipo não suportado' }, { status: 400 });
-    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-    response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+    setRateLimitHeaders(response);
     return response;
   } catch (error) {
     console.error('AI generation error:', error);

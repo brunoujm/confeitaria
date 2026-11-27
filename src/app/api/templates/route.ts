@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') || '20', 10)));
 
     // Valid PostType values to prevent injection
     const validTypes = ['FEED', 'STORIES', 'REELS', 'WHATSAPP_STATUS', 'WHATSAPP_CATALOG'] as const;
@@ -47,17 +49,30 @@ export async function GET(request: NextRequest) {
       where.structure = { path: ['type'], equals: type };
     }
 
-    const templates = await prisma.template.findMany({
-      where,
-      include: {
-        user: {
-          select: { id: true, name: true, email: true },
+    const [templates, total] = await Promise.all([
+      prisma.template.findMany({
+        where,
+        include: {
+          user: {
+            select: { id: true, name: true, email: true },
+          },
         },
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.template.count({ where }),
+    ]);
 
-    return NextResponse.json({ templates });
+    return NextResponse.json({
+      templates,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     console.error('Templates fetch error:', error);
     return NextResponse.json({ error: 'Erro ao buscar templates' }, { status: 500 });

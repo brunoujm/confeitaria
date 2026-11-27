@@ -1,9 +1,38 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import path from 'path';
 import { auth } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 import { fileTypeFromBuffer } from 'file-type';
 import { validateVideoFile } from '@/lib/video-metadata';
+import { apiRateLimiter, checkRateLimit } from '@/lib/ratelimit';
+
+/**
+ * Retry helper with exponential backoff for transient failures
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 500
+): Promise<T> {
+  let lastError: Error;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      // Don't retry on auth/permission errors (401, 403)
+      if (lastError.message.includes('401') || lastError.message.includes('403')) {
+        throw lastError;
+      }
+      if (attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 100; // jitter
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError!;
+}
 
 /**
  * Cria o cliente Supabase de forma lazy (sob demanda).
@@ -153,6 +182,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
+    // Rate limiting: 20 uploads per minute per user (stricter for uploads)
+    const rateLimitResult = await checkRateLimit(apiRateLimiter, `media:upload:${session.user.id}`);
+    if (!rateLimitResult.success) {
+      const response = NextResponse.json(
+        { error: 'Muitas requisições de upload. Tente novamente em um minuto.' },
+        { status: 429 }
+      );
+      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+      return response;
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -243,30 +285,35 @@ export async function POST(request: NextRequest) {
     const fileName = `${crypto.randomUUID()}.${fileExt}`;
     const filePath = `${session.user.id}/${fileName}`;
 
-    // Upload to Supabase Storage (using buffer already validated)
+    // Upload to Supabase Storage with retry logic for transient failures
     const supabase = getSupabaseClient();
-    const uploadResult = await supabase.storage
-      .from('media')
-      .upload(filePath, buffer, {
-        contentType: file.type,
-        upsert: false,
-      });
-
-    if (uploadResult.error) {
-      console.error('Supabase upload error:', uploadResult.error);
-      return NextResponse.json({ error: 'Erro ao fazer upload do arquivo' }, { status: 500 });
-    }
+    const uploadResult = await withRetry(async () => {
+      const result = await supabase.storage
+        .from('media')
+        .upload(filePath, buffer, {
+          contentType: file.type,
+          upsert: false,
+        });
+      if (result.error) {
+        throw new Error(result.error.message);
+      }
+      return result;
+    }, 3, 500);
 
     // Get public URL
     const { data: urlData } = supabase.storage.from('media').getPublicUrl(filePath);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       url: urlData.publicUrl,
       path: filePath,
       type: isImage ? 'IMAGE' : 'VIDEO',
       size: file.size,
       name: file.name,
     });
+    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+    return response;
   } catch (error) {
     console.error('Media upload error:', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
@@ -280,27 +327,59 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const path = searchParams.get('path');
+    // Rate limiting: 50 deletions per minute per user
+    const rateLimitResult = await checkRateLimit(apiRateLimiter, `media:delete:${session.user.id}`);
+    if (!rateLimitResult.success) {
+      const response = NextResponse.json(
+        { error: 'Muitas requisições. Tente novamente em um minuto.' },
+        { status: 429 }
+      );
+      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+      return response;
+    }
 
-    if (!path) {
+    const { searchParams } = new URL(request.url);
+    const filePath = searchParams.get('path');
+
+    if (!filePath) {
       return NextResponse.json({ error: 'Caminho do arquivo não fornecido' }, { status: 400 });
     }
 
-    // Verify ownership
-    if (!path.startsWith(`${session.user.id}/`)) {
+    // Verify ownership with path traversal protection
+    // Normalize path using POSIX (Supabase uses POSIX paths)
+    const normalizedPath = path.posix.normalize(filePath);
+
+    // Reject paths that attempt traversal (..), absolute paths (/), or empty paths
+    if (normalizedPath.startsWith('..') || normalizedPath.startsWith('/') || normalizedPath === '') {
+      return NextResponse.json({ error: 'Caminho inválido' }, { status: 400 });
+    }
+
+    // Reject if normalization changed the path (bypass attempt with ./ or // etc)
+    if (normalizedPath !== filePath) {
+      return NextResponse.json({ error: 'Caminho inválido' }, { status: 400 });
+    }
+
+    // Verify ownership: path must be strictly under user's directory
+    const userPrefix = `${session.user.id}/`;
+    if (!normalizedPath.startsWith(userPrefix)) {
       return NextResponse.json({ error: 'Não autorizado a excluir este arquivo' }, { status: 403 });
     }
 
     const supabase = getSupabaseClient();
-    const { error } = await supabase.storage.from('media').remove([path]);
+    const { error } = await supabase.storage.from('media').remove([filePath]);
 
     if (error) {
       console.error('Supabase delete error:', error);
       return NextResponse.json({ error: 'Erro ao excluir arquivo' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+    return response;
   } catch (error) {
     console.error('Media delete error:', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });

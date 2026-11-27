@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
+import { apiRateLimiter, checkRateLimit } from '@/lib/ratelimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,19 @@ export async function GET(_request: NextRequest) {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    // Rate limiting: 100 requests per minute per user
+    const rateLimitResult = await checkRateLimit(apiRateLimiter, `ai-config:${session.user.id}`);
+    if (!rateLimitResult.success) {
+      const response = NextResponse.json(
+        { error: 'Muitas requisições. Tente novamente em um minuto.' },
+        { status: 429 }
+      );
+      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+      return response;
     }
 
     let config = await prisma.aIConfig.findUnique({
@@ -39,7 +53,11 @@ export async function GET(_request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ config });
+    const response = NextResponse.json({ config });
+    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+    return response;
   } catch (error) {
     console.error('AI config fetch error:', error);
     return NextResponse.json({ error: 'Erro ao buscar configuração de IA' }, { status: 500 });
@@ -51,6 +69,19 @@ export async function PUT(request: NextRequest) {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    // Rate limiting: 20 requests per minute per user
+    const rateLimitResult = await checkRateLimit(apiRateLimiter, `ai-config:${session.user.id}`);
+    if (!rateLimitResult.success) {
+      const response = NextResponse.json(
+        { error: 'Muitas requisições. Tente novamente em um minuto.' },
+        { status: 429 }
+      );
+      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+      return response;
     }
 
     const body = await request.json();
@@ -69,7 +100,11 @@ export async function PUT(request: NextRequest) {
       update: validation.data,
     });
 
-    return NextResponse.json({ config });
+    const response = NextResponse.json({ config });
+    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+    return response;
   } catch (error) {
     console.error('AI config save error:', error);
     return NextResponse.json({ error: 'Erro ao salvar configuração de IA' }, { status: 500 });

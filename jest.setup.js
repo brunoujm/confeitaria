@@ -202,3 +202,9 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
   unobserve: jest.fn(),
   disconnect: jest.fn(),
 }));
+
+// Mock crypto.randomUUID for tests
+if (typeof global.crypto === 'undefined') {
+  global.crypto = {};
+}
+global.crypto.randomUUID = jest.fn(() => 'test-uuid-' + Math.random().toString(36).substr(2, 9));

@@ -5,13 +5,25 @@ import { type BrandIdentity } from '@prisma/client';
  * DRY utility to avoid duplication across API routes
  */
 export function parseBrand(brand: BrandIdentity) {
-  return {
-    ...brand,
-    colors: JSON.parse(brand.colors),
-    fonts: JSON.parse(brand.fonts),
-    logos: JSON.parse(brand.logos),
-    defaultHashtags: JSON.parse(brand.defaultHashtags),
-  };
+  try {
+    return {
+      ...brand,
+      colors: JSON.parse(brand.colors),
+      fonts: JSON.parse(brand.fonts),
+      logos: JSON.parse(brand.logos),
+      defaultHashtags: JSON.parse(brand.defaultHashtags),
+    };
+  } catch (error) {
+    console.error('[parseBrand] Failed to parse brand JSON:', error);
+    // Return safe defaults to prevent page crash
+    return {
+      ...brand,
+      colors: defaultBrandIdentity.colors,
+      fonts: defaultBrandIdentity.fonts,
+      logos: defaultBrandIdentity.logos,
+      defaultHashtags: defaultBrandIdentity.defaultHashtags,
+    };
+  }
 }
 
 /**

@@ -50,6 +50,8 @@ model Post {
   @@index([authorId])
   @@index([status])
   @@index([scheduledAt])
+  @@index([authorId, status])           // Dashboard: filter posts by author + status
+  @@index([authorId, status, scheduledAt]) // Calendar: filter by author + status + date range + order by scheduledAt
 }
 
 model Media {
@@ -85,6 +87,7 @@ model Template {
   posts       Post[]
 
   @@index([userId])
+  @@index([userId, isPublic]) // Template listing: WHERE (userId = ? OR isPublic = true)
 }
 
 model BrandIdentity {
@@ -158,4 +161,5 @@ model Notification {
 
   @@index([userId, read])
   @@index([createdAt])
+  @@index([userId, read, createdAt]) // Notifications list: WHERE userId = ? AND read = ? ORDER BY createdAt DESC
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validateFFprobeAvailable } from './video-metadata';
 
 /**
  * Schema de validação das variáveis de ambiente
@@ -145,16 +146,49 @@ export function validateRedis(env: z.infer<typeof envSchema>): void {
 }
 
 /**
+ * Validação de ffprobe no startup
+ * Em produção, falha o build/inicialização se ffprobe não estiver disponível
+ */
+export async function validateFFprobe(): Promise<void> {
+  try {
+    await validateFFprobeAvailable();
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ ffprobe disponível - validação server-side de vídeos ativa');
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV === 'production') {
+      // Em produção, o erro já foi lançado com mensagem descritiva
+      throw error;
+    }
+    // Em desenvolvimento, apenas loga warning
+    console.warn('⚠️ ffprobe não disponível:', error instanceof Error ? error.message : String(error));
+  }
+}
+
+/**
  * Instância validada das variáveis de ambiente (singleton)
  * Deve ser chamada uma única vez no startup da aplicação
  */
 let validatedEnv: z.infer<typeof envSchema> | null = null;
 
-export function getValidatedEnv(): z.infer<typeof envSchema> {
+export async function getValidatedEnv(): Promise<z.infer<typeof envSchema>> {
   if (!validatedEnv) {
     validatedEnv = validateEnv();
     validateAIProviders(validatedEnv);
     validateRedis(validatedEnv);
+    // Validar ffprobe no startup (async)
+    await validateFFprobe();
+  }
+  return validatedEnv;
+}
+
+/**
+ * Versão síncrona para compatibilidade (usa validação já feita)
+ * ATENÇÃO: Deve ser chamada apenas após getValidatedEnv() ter sido executado
+ */
+export function getValidatedEnvSync(): z.infer<typeof envSchema> {
+  if (!validatedEnv) {
+    throw new Error('getValidatedEnv() deve ser chamado antes de getValidatedEnvSync()');
   }
   return validatedEnv;
 }

@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar';
 import { AccountMenu } from '@/components/ui/AccountMenu';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import {
   LayoutDashboard,
   FileText,
@@ -152,7 +153,9 @@ export default function DashboardLayout({
         </header>
 
         {/* Page content */}
-        <main className="p-4 lg:p-6">{children}</main>
+        <main className="p-4 lg:p-6">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     </div>
   );

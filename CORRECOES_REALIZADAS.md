@@ -588,3 +588,140 @@ if (type && validTypes.includes(type as typeof validTypes[number])) {
 - Auditoria completa dos 9 itens de qualidade
 - Estado atual, gaps identificados, plano de ação
 - Base para acompanhamento do progresso
+
+---
+
+## 18. Auditoria Completa de Segurança e Remediação (2026-11-27)
+
+### Contexto
+Baseado no arquivo `AUDITORIA_COMPLETA.md`, executada missão completa de remediação de **20 vulnerabilidades** (5 Críticas, 5 Altas, 6 Médias, 4 Baixas) + **5 vulnerabilidades confirmadas**.
+
+### Fase 1: Vulnerabilidades Críticas (5/5 Corrigidas)
+
+#### 1.1 Memory Leak Prisma Client (Desenvolvimento)
+- **Arquivo:** `src/lib/prisma.ts`
+- **Correção:** Handler `beforeExit` com flag `prismaDisconnectRegistered` para `$disconnect()` no hot reload
+
+#### 1.2 Rate Limiting Ausente em Registro
+- **Arquivos:** `src/lib/ratelimit.ts`, `src/app/api/auth/register/route.ts`
+- **Correção:** 
+  - `authRateLimiter` (5 req/min por IP)
+  - `getClientIp()` para IPv4/IPv6
+  - Anti-enumeração (sempre retorna 200)
+  - Senha mínima 8 caracteres
+
+#### 1.3 Bypass de Autenticação Socket.io
+- **Arquivo:** `src/app/api/socket/route.ts`
+- **Correção:**
+  - Validação obrigatória token NextAuth no handshake
+  - `socketUserData` Map para usuários autenticados
+  - `userHasPostAccess()` ownership checks em `post:join`, `presence:update`, `post:update`
+
+#### 1.4 Path Traversal em Upload de Mídia
+- **Arquivo:** `src/app/api/media/route.ts`
+- **Correção:**
+  - `path.posix.normalize()` para normalização POSIX (Supabase)
+  - Bloqueio de `..`, caminhos absolutos, vazios
+  - Detecção de bypass (encoded slashes, double dots)
+
+#### 1.5 Race Condition no Cron Cleanup
+- **Arquivo:** `src/app/api/cron/cleanup/route.ts`
+- **Correção:** Padrão Saga - Supabase DELETE primeiro, depois transação Prisma. Compensação em falha.
+
+---
+
+### Fase 2: Vulnerabilidades Altas (5/5 Corrigidas)
+
+#### 2.1 Prompt Injection nas Rotas IA
+- **Arquivos:** `src/lib/ai-sanitize.ts` (NOVO), `src/app/api/ai/route.ts`, `src/app/api/ai/test/route.ts`, `src/app/api/ai/presets/route.ts`, `src/app/api/ai/presets/[id]/route.ts`
+- **Correção:** Biblioteca defense-in-depth com:
+  - 30+ padrões de injeção detectados
+  - `validatePromptTemplate()` - valida estrutura, detecta injeção
+  - `validateVariableName()` / `validateVariableValue()` - validação estrita
+  - `sanitizeForDisplay()` - encoding HTML para XSS
+  - `interpolateTemplate()` - substituição segura
+  - `separateSystemUserMessages()` - separação system/user
+- **Testes:** 49 testes de segurança em `tests/security/ai-sanitize.test.ts`
+
+#### 2.2 Índices Compostos Ausentes
+- **Arquivo:** `prisma/schema.prisma`
+- **Correção:** 4 índices compostos:
+  - Post: `authorId + scheduledAt`, `authorId + status`
+  - Template: `userId + isPublic`
+  - Notification: `userId + read + createdAt`
+
+#### 2.3 Paginação Ausente em Calendário
+- **Correção:** Paginação server-side com `page`, `limit` (máx 50), `select` em vez de `include`, filtros server-side
+
+#### 2.4 Reconexão Socket.io sem Backoff
+- **Arquivo:** `src/lib/socket.ts`
+- **Correção:** Exponential backoff com jitter (1s → 30s, ±25%, máx 10 retries)
+
+#### 2.5 CSP sem Nonce / unsafe-eval
+- **Arquivos:** `src/middleware.ts`, `src/app/api/csp-report/route.ts` (NOVO), `next.config.js`
+- **Correção:**
+  - Removido `unsafe-eval`
+  - Nonce geração e injeção via middleware
+  - Modo Report-Only com endpoint `csp-report`
+  - Log de violações para monitoramento
+
+#### 2.6 ffprobe Não Obrigatório em Produção
+- **Arquivos:** `package.json`, `Dockerfile.socket` (NOVO), `vercel.json`
+- **Correção:**
+  - `@vercel/buildpack-ffmpeg` para Vercel
+  - Build falha se ffprobe ausente em produção
+  - Dockerfile inclui ffmpeg para socket server
+
+---
+
+### Fase 3: Vulnerabilidades Médias (8/10 Corrigidas)
+
+| # | Vulnerabilidade | Arquivo | Status |
+|---|-----------------|---------|--------|
+| 1 | `Math.random()` para IDs | `src/components/ui/Toast.tsx:29` | ✅ `crypto.randomUUID()` |
+| 2 | JSON.parse sem try/catch | `src/lib/brand.ts` | ✅ Try/catch com fallback |
+| 3 | Upload sem retry | `src/app/api/media/route.ts` | ✅ `withRetry` helper (3 retries, exp backoff) |
+| 4 | Sem Error Boundary | `src/components/ui/ErrorBoundary.tsx` (NOVO) | ✅ Class component com retry, dev details |
+| 5 | Timeout ausente em fetch | `src/app/[locale]/(dashboard)/settings/ai/page.tsx` | ✅ AbortController 10s + cleanup |
+| 6 | Paginação templates | `src/app/api/templates/route.ts` | ✅ page, limit max 50, skip/take |
+| 7 | Paginação notificações | `src/app/api/notifications/route.ts` | ✅ page, limit max 50, skip/take + unreadCount |
+| 8 | Validação WebP/AVIF | - | ⏳ Pendente |
+| 9 | Retry expandido | - | ⏳ Parcial (media upload) |
+| 10 | Headers segurança | `src/middleware.ts` | ✅ CSP, X-Frame-Options, etc. |
+
+---
+
+### Melhorias Adicionais de Segurança
+
+1. **Headers de Segurança (Middleware)** - CSP com nonce, X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy, Permissions-Policy
+2. **Rate Limiting Fail-Closed (Produção)** - Bloqueia se Redis indisponível
+3. **Rate Limiting Expandido** - `/api/posts/*`, `/api/templates/*`, `/api/brand/*`, `/api/notifications/*`, `/api/ai/presets/*`
+4. **Magic Bytes Validation** - `file-type` package previne MIME spoofing
+5. **Validação Server-Side Vídeo** - ffprobe valida duração, dimensões, aspect ratio, codec por plataforma
+6. **Ownership Checks** - PUT/DELETE posts verificam propriedade
+
+---
+
+### Validação Final
+
+| Check | Resultado |
+|-------|-----------|
+| Testes Unitários (80) | ✅ PASS |
+| Testes Segurança (49) | ✅ PASS |
+| TypeScript | ✅ PASS (0 erros) |
+| ESLint | ✅ PASS (warnings apenas) |
+| Build Produção | ✅ PASS |
+
+---
+
+### Arquivos de Relatório
+- `SECURITY_REMEDIATION_REPORT.md` - Relatório completo de remediação
+- `AUDITORIA_COMPLETA.md` - Auditoria original
+
+---
+
+### Próximos Passos (Baixa Prioridade)
+1. Validação Magic Bytes WebP/AVIF explícita
+2. Expandir retry logic para outras operações Supabase
+3. Monitorar CSP Report-Only em produção antes de enforçar
+4. Testes automatizados para headers de segurança

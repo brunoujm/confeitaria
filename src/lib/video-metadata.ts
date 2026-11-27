@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import * as tmp from 'tmp';
 import { validateVideoServerSide, type VideoMetadata as ValidationVideoMetadata } from './video-validation';
+import { isProduction } from './env';
 
 export interface VideoMetadata {
   duration: number;
@@ -14,8 +15,44 @@ export interface VideoMetadata {
   frameRate?: number;
 }
 
-// Verificar se ffprobe está disponível no sistema
-async function checkFfprobeAvailable(): Promise<boolean> {
+/**
+ * Verifica se ffprobe está disponível no sistema
+ * Em produção, lança erro se não estiver disponível
+ * Em desenvolvimento, retorna false com warning
+ */
+export async function validateFFprobeAvailable(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('ffprobe', ['-version']);
+    proc.on('error', () => {
+      if (isProduction()) {
+        reject(new Error(
+          '❌ ffprobe não está instalado. Em produção, ffprobe é obrigatório para validação server-side de vídeos.\n' +
+          '📦 Instale ffprobe no ambiente de produção (Vercel: use buildpack https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest)'
+        ));
+      } else {
+        console.warn('⚠️ ffprobe não encontrado. Validação server-side de vídeos desabilitada (fallback para client-side).');
+        resolve();
+      }
+    });
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        if (isProduction()) {
+          reject(new Error(
+            '❌ ffprobe falhou ao executar. Verifique a instalação no ambiente de produção.'
+          ));
+        } else {
+          console.warn('⚠️ ffprobe retornou código de saída não-zero. Validação server-side desabilitada.');
+          resolve();
+        }
+      }
+    });
+  });
+}
+
+// Verificar se ffprobe está disponível no sistema (legacy - mantido para compatibilidade)
+async function _checkFfprobeAvailable(): Promise<boolean> {
   return new Promise((resolve) => {
     const proc = spawn('ffprobe', ['-version']);
     proc.on('error', () => resolve(false));
@@ -102,12 +139,15 @@ export async function validateVideoFile(
   metadata?: VideoMetadata;
   serverValidated: boolean;
 }> {
-  // Verificar se ffprobe está disponível
-  const ffprobeAvailable = await checkFfprobeAvailable();
-
-  if (!ffprobeAvailable) {
-    // Fallback: validação básica apenas (tamanho, tipo)
-    // A validação completa acontece no client-side com VideoValidator
+  // Verificar se ffprobe está disponível - em produção lança erro se ausente
+  try {
+    await validateFFprobeAvailable();
+  } catch (error) {
+    // Em produção, o erro já foi lançado acima
+    // Em desenvolvimento, continuamos com fallback
+    if (isProduction()) {
+      throw error;
+    }
     return {
       valid: true,
       errors: [],

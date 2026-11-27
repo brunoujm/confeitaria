@@ -11,10 +11,12 @@ interface LocaleLayoutProps {
   params: Promise<{ locale: string }>;
 }
 
-// Runtime environment validation - runs at request time, not build time
-// This avoids build failures when Vercel build environment lacks some env vars
-// The getValidatedEnv() function caches the result, so this only validates once
-getValidatedEnv();
+// Runtime environment validation component
+// Runs at request time, not build time - avoids build failures when Vercel build env vars are incomplete
+async function EnvValidationWrapper({ children }: { children: React.ReactNode }) {
+  await getValidatedEnv();
+  return <>{children}</>;
+}
 
 export default async function LocaleLayout({
   children,
@@ -25,7 +27,7 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages} locale={locale}>
-      {children}
+      <EnvValidationWrapper>{children}</EnvValidationWrapper>
     </NextIntlClientProvider>
   );
 }

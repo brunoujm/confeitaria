@@ -1,15 +1,16 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { aiRateLimiter, checkRateLimit } from '@/lib/ratelimit';
+import { validatePromptTemplate, validateVariableName } from '@/lib/ai-sanitize';
 
 const updatePresetSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   description: z.string().optional().nullable(),
   type: z.enum(['CAPTION', 'HASHTAG', 'IMAGE']).optional(),
-  prompt: z.string().min(1).optional(),
+  prompt: z.string().min(10).max(10000).optional(),
   variables: z.array(z.string()).optional(),
   model: z.string().min(1).optional(),
   temperature: z.number().min(0).max(2).optional(),
@@ -98,6 +99,37 @@ export async function PUT(
       return NextResponse.json({ error: 'Não autorizado' }, { status: 403 });
     }
 
+    // Validate prompt template if provided
+    let sanitizedPrompt = preset.prompt;
+    if (validation.data.prompt) {
+      const promptValidation = validatePromptTemplate(validation.data.prompt);
+      if (!promptValidation.valid) {
+        return NextResponse.json({ error: `Prompt inválido: ${promptValidation.error}` }, { status: 400 });
+      }
+      sanitizedPrompt = promptValidation.sanitized;
+    }
+
+    // Validate variables if provided
+    if (validation.data.variables) {
+      for (const varName of validation.data.variables) {
+        const varValidation = validateVariableName(varName);
+        if (!varValidation.valid) {
+          return NextResponse.json({ error: `Variável "${varName}": ${varValidation.error}` }, { status: 400 });
+        }
+      }
+
+      // Check for duplicates
+      const uniqueVars = new Set(validation.data.variables);
+      if (uniqueVars.size !== validation.data.variables.length) {
+        return NextResponse.json({ error: 'Variáveis duplicadas não são permitidas' }, { status: 400 });
+      }
+
+      // Limit number of variables
+      if (validation.data.variables.length > 20) {
+        return NextResponse.json({ error: 'Muitas variáveis (máx. 20)' }, { status: 400 });
+      }
+    }
+
     // If setting as default, unset other defaults for this type
     if (validation.data.isDefault) {
       await prisma.aIPreset.updateMany({
@@ -114,6 +146,7 @@ export async function PUT(
       where: { id },
       data: {
         ...validation.data,
+        prompt: sanitizedPrompt,
         variables: validation.data.variables ? JSON.stringify(validation.data.variables) : undefined,
       },
     });

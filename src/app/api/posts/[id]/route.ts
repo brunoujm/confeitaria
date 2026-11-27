@@ -191,13 +191,26 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    // Rate limiting: 100 requests per minute per user
+    const rateLimitResult = await checkRateLimit(apiRateLimiter, `posts:${session.user.id}`);
+    if (!rateLimitResult.success) {
+      const response = NextResponse.json(
+        { error: 'Muitas requisições. Tente novamente em um minuto.' },
+        { status: 429 }
+      );
+      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+      return response;
     }
 
     const { id } = await params;
@@ -222,7 +235,11 @@ export async function DELETE(
       data: { status: 'ARCHIVED' },
     });
 
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+    return response;
   } catch (error) {
     console.error('DELETE /api/posts/[id] error:', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });

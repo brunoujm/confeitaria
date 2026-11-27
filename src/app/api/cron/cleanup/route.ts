@@ -1,4 +1,4 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
@@ -58,7 +58,39 @@ export async function GET(request: NextRequest) {
         .filter((p): p is string => p !== null)
     );
 
-    // Delete posts atomically using transaction to prevent race conditions
+    // Option A: Delete from Supabase FIRST, then Prisma
+    // If Supabase fails → return error, DON'T delete posts
+    // If Prisma fails after Supabase success → media orphaned but posts remain (cleanup job handles later)
+    if (mediaPaths.length > 0 && process.env.SUPABASE_SERVICE_ROLE_KEY &&
+        process.env.SUPABASE_SERVICE_ROLE_KEY !== 'placeholder-service-key') {
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+
+        const { error: storageError } = await supabase.storage
+          .from('media')
+          .remove(mediaPaths);
+
+        if (storageError) {
+          console.error('Failed to delete media from Supabase:', storageError);
+          return NextResponse.json(
+            { error: 'Falha ao deletar mídia do Supabase, posts não foram removidos', details: storageError.message },
+            { status: 500 }
+          );
+        }
+      } catch (storageErr) {
+        console.error('Supabase cleanup error:', storageErr);
+        return NextResponse.json(
+          { error: 'Erro ao conectar com Supabase, posts não foram removidos', details: String(storageErr) },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Supabase deletion succeeded (or no media to delete), now delete posts in Prisma transaction
     // Using the same filter criteria directly in deleteMany avoids the TOCTOU race
     const deletedPosts = await prisma.$transaction(async (tx) => {
       // Re-verify posts still match criteria at deletion time
@@ -87,27 +119,13 @@ export async function GET(request: NextRequest) {
       return { count: result.count, ids: postsToDelete.map(p => p.id) };
     });
 
-    // Optionally delete from Supabase Storage
-    // Note: This requires SUPABASE_SERVICE_ROLE_KEY
-    if (mediaPaths.length > 0 && process.env.SUPABASE_SERVICE_ROLE_KEY &&
-        process.env.SUPABASE_SERVICE_ROLE_KEY !== 'placeholder-service-key') {
-      try {
-        const { createClient } = await import('@supabase/supabase-js');
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
-
-        const { error: storageError } = await supabase.storage
-          .from('media')
-          .remove(mediaPaths);
-
-        if (storageError) {
-          console.warn('Failed to delete some media from Supabase:', storageError);
-        }
-      } catch (storageErr) {
-        console.warn('Supabase cleanup skipped:', storageErr);
-      }
+    // If Prisma deletion fails after Supabase success, media is orphaned but posts remain
+    // This is acceptable - a manual/admin cleanup job can handle orphaned media later
+    if (deletedPosts.count < oldArchivedPosts.length) {
+      console.warn(
+        `Cron cleanup: Expected to delete ${oldArchivedPosts.length} posts but deleted ${deletedPosts.count}. ` +
+        `Some posts may have been restored or modified concurrently. Orphaned media in Supabase may exist.`
+      );
     }
 
     return NextResponse.json({

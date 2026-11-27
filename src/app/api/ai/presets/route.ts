@@ -1,15 +1,16 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { aiRateLimiter, checkRateLimit } from '@/lib/ratelimit';
+import { validatePromptTemplate, validateVariableName } from '@/lib/ai-sanitize';
 
 const createPresetSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional().nullable(),
   type: z.enum(['CAPTION', 'HASHTAG', 'IMAGE']),
-  prompt: z.string().min(1),
+  prompt: z.string().min(10).max(10000),
   variables: z.array(z.string()).default([]),
   model: z.string().min(1),
   temperature: z.number().min(0).max(2).default(0.7),
@@ -78,6 +79,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Dados inválidos', details: validation.error.flatten() }, { status: 400 });
     }
 
+    // Validate prompt template for security
+    const promptValidation = validatePromptTemplate(validation.data.prompt);
+    if (!promptValidation.valid) {
+      return NextResponse.json({ error: `Prompt inválido: ${promptValidation.error}` }, { status: 400 });
+    }
+
+    // Validate all variable names
+    for (const varName of validation.data.variables) {
+      const varValidation = validateVariableName(varName);
+      if (!varValidation.valid) {
+        return NextResponse.json({ error: `Variável "${varName}": ${varValidation.error}` }, { status: 400 });
+      }
+    }
+
+    // Check for duplicate variables
+    const uniqueVars = new Set(validation.data.variables);
+    if (uniqueVars.size !== validation.data.variables.length) {
+      return NextResponse.json({ error: 'Variáveis duplicadas não são permitidas' }, { status: 400 });
+    }
+
+    // Limit number of variables
+    if (validation.data.variables.length > 20) {
+      return NextResponse.json({ error: 'Muitas variáveis (máx. 20)' }, { status: 400 });
+    }
+
     // If setting as default, unset other defaults for this type
     if (validation.data.isDefault) {
       await prisma.aIPreset.updateMany({
@@ -93,6 +119,7 @@ export async function POST(request: NextRequest) {
     const preset = await prisma.aIPreset.create({
       data: {
         ...validation.data,
+        prompt: promptValidation.sanitized,
         userId: session.user.id,
         variables: JSON.stringify(validation.data.variables),
       },

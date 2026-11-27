@@ -28,11 +28,13 @@ export const postFiltersSchema = z.object({
   view: z.enum(['month', 'week', 'list']).optional(),
   start: z.string().datetime().optional(),
   end: z.string().datetime().optional(),
+  scheduledFrom: z.string().datetime().optional(),
+  scheduledTo: z.string().datetime().optional(),
   type: z.array(z.enum(['FEED', 'STORIES', 'REELS', 'WHATSAPP_STATUS', 'WHATSAPP_CATALOG'])).optional(),
   status: z.array(z.enum(['DRAFT', 'APPROVED', 'PUBLISHED', 'ARCHIVED'])).optional(),
   authorId: z.string().optional(),
   page: z.number().int().positive().default(1),
-  limit: z.number().int().positive().max(100).default(50),
+  limit: z.number().int().positive().max(50).default(50),
 });
 
 export type CreatePostInput = z.infer<typeof createPostSchema>;

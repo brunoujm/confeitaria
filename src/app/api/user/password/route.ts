@@ -1,15 +1,28 @@
 import type { NextRequest} from 'next/server';
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { apiRateLimiter, checkRateLimit } from '@/lib/ratelimit';
 
 export async function PUT(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    // Rate limiting: 5 password changes per minute per user (stricter for security)
+    const rateLimitResult = await checkRateLimit(apiRateLimiter, `user:password:${session.user.id}`);
+    if (!rateLimitResult.success) {
+      const response = NextResponse.json(
+        { error: 'Muitas tentativas de alteração de senha. Tente novamente em um minuto.' },
+        { status: 429 }
+      );
+      response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+      response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+      response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+      return response;
     }
 
     const body = await request.json();
@@ -44,7 +57,11 @@ export async function PUT(request: NextRequest) {
       data: { password: hashedPassword },
     });
 
-    return NextResponse.json({ success: true });
+    const response = NextResponse.json({ success: true });
+    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', rateLimitResult.reset.toString());
+    return response;
   } catch (error) {
     console.error('Password change error:', error);
     return NextResponse.json({ error: 'Erro ao alterar senha' }, { status: 500 });
